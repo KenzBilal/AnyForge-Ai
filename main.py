@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers import webhooks, generator
 from services import db_service as db_module
 import uvicorn
+import os
 
 
 @asynccontextmanager
@@ -17,7 +18,6 @@ async def lifespan(app: FastAPI):
     app.state.db = await db_module.DBService.create()
     print("[Startup] Supabase client ready.")
     yield
-    # Any teardown logic goes here (e.g. closing connection pools)
     print("[Shutdown] AnyForge-AI stopped.")
 
 
@@ -46,4 +46,5 @@ async def health_check():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
