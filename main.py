@@ -17,13 +17,14 @@ if _missing:
 
 from services import db_service as db_module
 from services.llm_service import llm_service
-from routers import generator, webhooks, admin
-
+from routers import generator, webhooks, admin, async_jobs
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db_module.db_service = db_module.DBService.create()
     llm_service.configure()
+    from services.privacy_service import privacy_service
+    privacy_service.configure()
     print("[AnyForge-AI] v2 started successfully.")
     yield
     print("[AnyForge-AI] Shutting down.")
@@ -47,6 +48,7 @@ app.add_middleware(
 app.include_router(generator.router)
 app.include_router(webhooks.router)
 app.include_router(admin.router)
+app.include_router(async_jobs.router)
 
 
 @app.get("/health")

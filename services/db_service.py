@@ -31,15 +31,21 @@ class DBService:
 
     def validate_api_key(self, api_key: str) -> Optional[dict]:
         try:
+            # Note: store_logs might not exist in an older schema, so we default to True
+            # if it's not present, we can just select * or specific fields.
             result = (
                 self.client.table("clients")
-                .select("id, project_name, rate_limit_per_min, daily_limit")
+                .select("id, project_name, rate_limit_per_min, daily_limit, store_logs")
                 .eq("api_key", api_key)
                 .eq("is_active", True)
                 .single()
                 .execute()
             )
-            return result.data or None
+            data = result.data or None
+            # Default store_logs to True if the column doesn't exist or is null
+            if data and data.get("store_logs") is None:
+                data["store_logs"] = True
+            return data
         except Exception as e:
             print(f"[DBService] API key validation error: {e}")
             return None
@@ -123,7 +129,7 @@ class DBService:
 
     def log_extraction(
         self,
-        client_id: str,
+        client: dict,
         endpoint_used: str,
         target_schema: str,
         input_snippet: str,
@@ -133,8 +139,15 @@ class DBService:
         error_message: Optional[str] = None,
     ) -> None:
         try:
+            # Enterprise Zero-Retention checks
+            if not client.get("store_logs", True):
+                # We skip storing input snippet and output json if zero-retention is requested
+                # We still log the request metadata purely for billing/rate limits.
+                input_snippet = "<redacted by zero-retention policy>"
+                output_json = {"_redacted": "zero-retention policy enabled"}
+
             self.client.table("extraction_logs").insert({
-                "client_id":      client_id,
+                "client_id":      client["id"],
                 "endpoint_used":  endpoint_used,
                 "target_schema":  target_schema[:2000],
                 "input_snippet":  (input_snippet or "")[:500],
@@ -216,6 +229,22 @@ class DBService:
         except Exception as e:
             print(f"[DBService] Toggle client error: {e}")
             return False
+
+    def rotate_client_key(self, client_id: str) -> Optional[str]:
+        try:
+            new_api_key = f"af-{secrets.token_urlsafe(24)}"
+            result = (
+                self.client.table("clients")
+                .update({"api_key": new_api_key})
+                .eq("id", client_id)
+                .execute()
+            )
+            if result.data:
+                return new_api_key
+            return None
+        except Exception as e:
+            print(f"[DBService] Rotate key error: {e}")
+            return None
 
     def delete_client(self, client_id: str) -> bool:
         try:

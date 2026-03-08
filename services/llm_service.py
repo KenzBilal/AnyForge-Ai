@@ -13,9 +13,10 @@ import json
 import os
 import base64
 import httpx
-from typing import Optional
+from typing import Optional, Any, Dict
 from groq import Groq
-from pydantic import BaseModel
+from pydantic import BaseModel, create_model
+import instructor
 
 
 # ── EventSchema (used by email webhook) ───────────────────────────────────────
@@ -40,7 +41,6 @@ Your ONLY job is to read the provided content and return a valid JSON object
 that exactly matches the target schema the user specifies.
 
 Rules (non-negotiable):
-- Output ONLY the raw JSON object. No markdown fences, no explanation, no preamble.
 - Every key in the target schema MUST appear in your output.
 - Use null for fields you cannot determine — never omit a key.
 - Dates must always be ISO 8601 (e.g. 2025-09-15T09:00:00Z).
@@ -58,15 +58,40 @@ EVENT_SCHEMA_DESCRIPTION = """{
   "status": "always the string: draft"
 }"""
 
-
-def _strip_fences(text: str) -> str:
-    text = text.strip()
-    if text.startswith("```"):
-        parts = text.split("```")
-        text = parts[1]
-        if text.startswith("json"):
-            text = text[4:]
-    return text.strip()
+def generate_pydantic_model(schema_str: str) -> type[BaseModel]:
+    """Attempts to parse target_schema into a strict Pydantic model for Instructor."""
+    try:
+        s = schema_str.strip()
+        if s.startswith("```json"):
+            s = s[7:]
+        if s.endswith("```"):
+            s = s[:-3]
+        s = s.strip()
+        
+        schema_dict = json.loads(s)
+        fields = {}
+        for key, val in schema_dict.items():
+            annotation = Any
+            if isinstance(val, str):
+                v = val.lower()
+                if "int" in v: annotation = int
+                elif "float" in v or "number" in v: annotation = float
+                elif "bool" in v: annotation = bool
+                elif "list" in v or "array" in v: annotation = list
+                elif "dict" in v or "object" in v: annotation = dict
+                else: annotation = str
+            elif isinstance(val, list):
+                annotation = list
+            elif isinstance(val, dict):
+                annotation = dict
+            
+            # (Type, default_value) -> ... means required
+            fields[key] = (annotation, ...)
+            
+        return create_model('DynamicModel', **fields)
+    except Exception:
+        # Fallback for plain-text schemas: Just ask for a dict wrapped in extracted_data
+        return create_model('DynamicModel', extracted_data=(Dict[str, Any], ...))
 
 
 def _build_prompt(content: str, target_schema: str, extra_instructions: str = "") -> str:
@@ -81,11 +106,12 @@ class LLMService:
         self._client: Optional[Groq] = None
 
     def configure(self):
-        """Called once at startup to initialise the Groq client."""
+        """Called once at startup to initialise the Groq client with Instructor."""
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
             raise ValueError("GROQ_API_KEY environment variable is not set")
-        self._client = Groq(api_key=api_key)
+        base_client = Groq(api_key=api_key)
+        self._client = instructor.from_groq(base_client, mode=instructor.Mode.JSON)
 
     @property
     def client(self) -> Groq:
@@ -101,23 +127,61 @@ class LLMService:
     ) -> Optional[dict]:
         try:
             full_prompt = _build_prompt(prompt, target_schema, extra_instructions)
+            model_cls = generate_pydantic_model(target_schema)
+
             response = self.client.chat.completions.create(
                 model=TEXT_MODEL,
+                response_model=model_cls,
+                max_retries=3,
                 messages=[
                     {"role": "system", "content": BASE_SYSTEM_PROMPT},
                     {"role": "user",   "content": full_prompt},
                 ],
                 temperature=0.1,
-                response_format={"type": "json_object"},
             )
-            raw = _strip_fences(response.choices[0].message.content)
-            return json.loads(raw)
-        except json.JSONDecodeError as e:
-            print(f"[LLMService.extract_any] JSON parse error: {e}")
-            return None
+            data = response.model_dump()
+            
+            # If we fell back to the wrapper, unwrap it
+            if "extracted_data" in data and len(data) == 1:
+                return data["extracted_data"]
+            return data
         except Exception as e:
             print(f"[LLMService.extract_any] Error: {e}")
             return None
+
+    async def extract_large_document(self, prompt: str, target_schema: str) -> dict:
+        """Splits massive text into chunks, extracts concurrently, and merges results."""
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+        import asyncio
+        import copy
+
+        # Groq llama-3.3-70b supports ~8k to 128k depending on endpoint.
+        # We'll chunk at 15000 chars safely.
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=15000,
+            chunk_overlap=1000,
+        )
+        chunks = text_splitter.split_text(prompt)
+        
+        if len(chunks) <= 1:
+            res = await self.extract_any(prompt, target_schema)
+            return res or {}
+            
+        tasks = []
+        for i, chunk in enumerate(chunks):
+            # Instruct the LLM that this is a partial chunk
+            extra = f"This is chunk {i+1} of {len(chunks)}. Extract all relevant data matching the schema from this portion only."
+            tasks.append(self.extract_any(chunk, target_schema, extra_instructions=extra))
+            
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        merged_result = {"_meta": {"total_chunks": len(chunks), "status": "merged"}, "extracted_data": []}
+        for chunk_res in results:
+            if isinstance(chunk_res, Exception) or chunk_res is None:
+                continue
+            merged_result["extracted_data"].append(chunk_res)
+            
+        return merged_result
 
     async def extract_vision(
         self,
@@ -148,8 +212,14 @@ class LLMService:
                 extra_instructions,
             )
 
+            # NOTE: Instructor might have limited support for multimodel inputs depending on version, 
+            # but standard chatting structure usually works if the underlying API supports it.
+            model_cls = generate_pydantic_model(target_schema)
+
             response = self.client.chat.completions.create(
                 model=VISION_MODEL,
+                response_model=model_cls,
+                max_retries=3,
                 messages=[
                     {"role": "system", "content": BASE_SYSTEM_PROMPT},
                     {
@@ -167,25 +237,28 @@ class LLMService:
                 ],
                 temperature=0.1,
             )
-            raw = _strip_fences(response.choices[0].message.content)
-            return json.loads(raw)
-        except json.JSONDecodeError as e:
-            print(f"[LLMService.extract_vision] JSON parse error: {e}")
-            return None
+            data = response.model_dump()
+            if "extracted_data" in data and len(data) == 1:
+                return data["extracted_data"]
+            return data
         except Exception as e:
             print(f"[LLMService.extract_vision] Error: {e}")
             return None
 
     async def extract_event(self, text: str) -> Optional[EventSchema]:
-        data = await self.extract_any(
-            prompt=text,
-            target_schema=EVENT_SCHEMA_DESCRIPTION,
-            extra_instructions='The "status" field must always be the string "draft".',
-        )
-        if not data:
-            return None
         try:
-            return EventSchema(**data)
+            # For specific types like EventSchema we can use response_model natively
+            response = self.client.chat.completions.create(
+                model=TEXT_MODEL,
+                response_model=EventSchema,
+                max_retries=3,
+                messages=[
+                    {"role": "system", "content": BASE_SYSTEM_PROMPT},
+                    {"role": "user", "content": _build_prompt(text, EVENT_SCHEMA_DESCRIPTION, 'The "status" field must always be the string "draft".')},
+                ],
+                temperature=0.1,
+            )
+            return response
         except Exception as e:
             print(f"[LLMService.extract_event] Schema validation error: {e}")
             return None

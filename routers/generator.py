@@ -82,12 +82,12 @@ def _check_rate_limit(client: dict) -> None:
         )
 
 
-def _log(client_id, endpoint, schema, snippet, output, grounding, success, error=None):
+def _log(client, endpoint, schema, snippet, output, grounding, success, error=None):
     db = db_module.db_service
     if db:
         try:
             db.log_extraction(
-                client_id=client_id,
+                client=client,
                 endpoint_used=endpoint,
                 target_schema=schema,
                 input_snippet=snippet,
@@ -108,11 +108,15 @@ async def generate(
     client = _authenticate(x_api_key)
     _check_rate_limit(client)
 
+    from services.privacy_service import privacy_service
+    # Step 1: PII Scrubbing
+    scrubbed_prompt = privacy_service.scrub_text(body.prompt)
+
     result, error = None, None
     success = False
 
     try:
-        result = await llm_service.extract_any(body.prompt, body.target_schema)
+        result = await llm_service.extract_any(scrubbed_prompt, body.target_schema)
         success = True
     except ValueError as e:
         error = str(e)
@@ -129,8 +133,8 @@ async def generate(
     finally:
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, lambda: _log(
-            client["id"], "/api/v1/generate",
-            body.target_schema, body.prompt[:500],
+            client, "/api/v1/generate",
+            body.target_schema, scrubbed_prompt[:500],
             result, body.grounding, success, error
         ))
 
@@ -150,7 +154,7 @@ async def extract_vision(
 
     try:
         result = await llm_service.extract_vision(
-            body.image_base64, body.mime_type, body.target_schema
+            body.target_schema, body.image_base64, None, body.mime_type
         )
         success = True
     except Exception as e:
@@ -162,7 +166,7 @@ async def extract_vision(
     finally:
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, lambda: _log(
-            client["id"], "/api/v1/extract-vision",
+            client, "/api/v1/extract-vision",
             body.target_schema, "[image]",
             result, False, success, error
         ))

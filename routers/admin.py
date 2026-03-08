@@ -109,3 +109,18 @@ def get_client_usage(
     if not usage:
         raise HTTPException(status_code=404, detail={"error": "client_not_found"})
     return {"usage": usage}
+
+
+@router.post("/clients/{client_id}/rotate-key")
+def rotate_key(
+    client_id: str,
+    x_admin_key: Optional[str] = Header(None),
+):
+    _require_admin(x_admin_key)
+    db = db_module.db_service
+    if not db:
+        raise HTTPException(status_code=503, detail={"error": "db_not_ready"})
+    new_key = db.rotate_client_key(client_id)
+    if not new_key:
+        raise HTTPException(status_code=500, detail={"error": "rotate_failed", "message": "Failed to rotate key."})
+    return {"success": True, "new_api_key": new_key}
