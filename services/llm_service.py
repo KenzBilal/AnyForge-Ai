@@ -1,40 +1,41 @@
 """
-AnyForge-AI — Core LLM Service
-Using google-generativeai==0.8.3 with gemini-1.5-flash-001 (free tier).
+AnyForge-AI — LLM Service (Groq)
+==================================
+Two capabilities:
+  1. extract_any()    — structured JSON extraction from any text
+  2. extract_vision() — structured JSON extraction from images
+
+Model: llama-3.3-70b-versatile (text)
+       meta-llama/llama-4-scout-17b-16e-instruct (vision)
 """
 
 import json
 import os
 import base64
-import asyncio
-import logging
-from typing import Optional
-
 import httpx
-import google.generativeai as genai
+from typing import Optional
+from groq import Groq
 from pydantic import BaseModel
 
-logger = logging.getLogger("anyforge.llm")
 
-MODEL_NAME    = "models/gemini-1.5-flash-001"
-MAX_RETRIES   = 3
-RETRY_DELAY_S = 1.5
-
-
+# ── EventSchema (used by email webhook) ───────────────────────────────────────
 class EventSchema(BaseModel):
-    title:         str
-    description:   str
-    category:      str
-    location:      str
-    start_date:    str
-    end_date:      str
+    title: str
+    description: str
+    category: str
+    location: str
+    start_date: str
+    end_date: str
     max_attendees: int
-    is_public:     bool
-    status:        str = "draft"
+    is_public: bool
+    status: str = "draft"
 
 
-BASE_SYSTEM_PROMPT = """\
-You are AnyForge-AI, a universal structured-data extraction engine.
+# ── Config ────────────────────────────────────────────────────────────────────
+TEXT_MODEL   = "llama-3.3-70b-versatile"
+VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
+
+BASE_SYSTEM_PROMPT = """You are AnyForge-AI, a universal structured-data extraction engine.
 Your ONLY job is to read the provided content and return a valid JSON object
 that exactly matches the target schema the user specifies.
 
@@ -43,8 +44,7 @@ Rules (non-negotiable):
 - Every key in the target schema MUST appear in your output.
 - Use null for fields you cannot determine — never omit a key.
 - Dates must always be ISO 8601 (e.g. 2025-09-15T09:00:00Z).
-- If the schema specifies allowed enum values, you must use one of them exactly.
-"""
+- If the schema specifies allowed enum values, you must use one of them exactly."""
 
 EVENT_SCHEMA_DESCRIPTION = """{
   "title": "string — event name",
@@ -64,78 +64,59 @@ def _strip_fences(text: str) -> str:
     if text.startswith("```"):
         parts = text.split("```")
         text = parts[1]
-        if text.lower().startswith("json"):
+        if text.startswith("json"):
             text = text[4:]
     return text.strip()
 
 
-def _build_prompt(user_content: str, target_schema: str, extra_instructions: str = "") -> str:
-    prompt = f"TARGET SCHEMA:\n{target_schema}\n\nCONTENT TO EXTRACT FROM:\n{user_content}"
+def _build_prompt(content: str, target_schema: str, extra_instructions: str = "") -> str:
+    prompt = f"TARGET SCHEMA:\n{target_schema}\n\nCONTENT TO EXTRACT FROM:\n{content}"
     if extra_instructions:
         prompt += f"\n\nADDITIONAL INSTRUCTIONS:\n{extra_instructions}"
     return prompt
 
 
 class LLMService:
-    _configured: bool = False
+    def __init__(self):
+        self._client: Optional[Groq] = None
 
-    def configure(self) -> None:
-        if self._configured:
-            return
-        api_key = os.getenv("GEMINI_API_KEY")
+    def configure(self):
+        """Called once at startup to initialise the Groq client."""
+        api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
-            raise ValueError("GEMINI_API_KEY environment variable is not set.")
-        genai.configure(api_key=api_key)
-        self._configured = True
-        logger.info("Gemini configured with model: %s", MODEL_NAME)
+            raise ValueError("GROQ_API_KEY environment variable is not set")
+        self._client = Groq(api_key=api_key)
 
-    def _ensure_configured(self) -> None:
-        if not self._configured:
+    @property
+    def client(self) -> Groq:
+        if not self._client:
             self.configure()
-
-    def _get_model(self) -> genai.GenerativeModel:
-        self._ensure_configured()
-        return genai.GenerativeModel(
-            model_name=MODEL_NAME,
-            system_instruction=BASE_SYSTEM_PROMPT,
-        )
-
-    def _generation_config(self) -> genai.types.GenerationConfig:
-        return genai.types.GenerationConfig(
-            temperature=0.1,
-            response_mime_type="application/json",
-        )
-
-    async def _generate_with_retry(self, content, context: str = "extract") -> Optional[str]:
-        model  = self._get_model()
-        config = self._generation_config()
-        delay  = RETRY_DELAY_S
-        for attempt in range(1, MAX_RETRIES + 1):
-            try:
-                response = await model.generate_content_async(content, generation_config=config)
-                return response.text
-            except Exception as e:
-                logger.warning("[%s] Gemini attempt %d/%d failed: %s", context, attempt, MAX_RETRIES, e)
-                if attempt < MAX_RETRIES:
-                    await asyncio.sleep(delay)
-                    delay *= 2
-        return None
+        return self._client
 
     async def extract_any(
         self,
         prompt: str,
         target_schema: str,
         extra_instructions: str = "",
-        use_grounding: bool = False,
     ) -> Optional[dict]:
-        full_prompt = _build_prompt(prompt, target_schema, extra_instructions)
-        raw = await self._generate_with_retry(full_prompt, "extract_any")
-        if raw is None:
-            return None
         try:
-            return json.loads(_strip_fences(raw))
+            full_prompt = _build_prompt(prompt, target_schema, extra_instructions)
+            response = self.client.chat.completions.create(
+                model=TEXT_MODEL,
+                messages=[
+                    {"role": "system", "content": BASE_SYSTEM_PROMPT},
+                    {"role": "user",   "content": full_prompt},
+                ],
+                temperature=0.1,
+                response_format={"type": "json_object"},
+            )
+            raw = _strip_fences(response.choices[0].message.content)
+            return json.loads(raw)
         except json.JSONDecodeError as e:
-            logger.error("[extract_any] JSON parse error: %s | raw: %.300s", e, raw)
+            print(f"[LLMService.extract_any] JSON parse error: {e}")
+            return None
+        except Exception as e:
+            print(f"[LLMService.extract_any] Error: {e}")
             return None
 
     async def extract_vision(
@@ -145,37 +126,54 @@ class LLMService:
         image_url: Optional[str] = None,
         image_mime_type: str = "image/jpeg",
         extra_instructions: str = "",
-        use_grounding: bool = False,
     ) -> Optional[dict]:
         if not image_base64 and not image_url:
-            raise ValueError("Provide either image_base64 or image_url.")
-        if image_url and not image_base64:
-            try:
-                async with httpx.AsyncClient(timeout=15) as client:
-                    resp = await client.get(image_url)
+            raise ValueError("Provide either image_base64 or image_url")
+        try:
+            if image_url and not image_base64:
+                async with httpx.AsyncClient(timeout=15) as http:
+                    resp = await http.get(image_url)
                     resp.raise_for_status()
                     image_base64 = base64.b64encode(resp.content).decode("utf-8")
                     ct = resp.headers.get("content-type", "")
                     if ct.startswith("image/"):
                         image_mime_type = ct.split(";")[0].strip()
-            except Exception as e:
-                logger.error("[extract_vision] Failed to fetch image URL %s: %s", image_url, e)
-                return None
-        if image_base64 and "," in image_base64:
-            image_base64 = image_base64.split(",", 1)[1]
 
-        text_part  = _build_prompt(
-            "[See the attached image — extract all relevant information from it]",
-            target_schema, extra_instructions,
-        )
-        image_part = {"mime_type": image_mime_type, "data": image_base64}
-        raw = await self._generate_with_retry([text_part, image_part], "extract_vision")
-        if raw is None:
-            return None
-        try:
-            return json.loads(_strip_fences(raw))
+            if image_base64 and "," in image_base64:
+                image_base64 = image_base64.split(",", 1)[1]
+
+            text_part = _build_prompt(
+                "[See the attached image — extract all relevant information from it]",
+                target_schema,
+                extra_instructions,
+            )
+
+            response = self.client.chat.completions.create(
+                model=VISION_MODEL,
+                messages=[
+                    {"role": "system", "content": BASE_SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": text_part},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{image_mime_type};base64,{image_base64}"
+                                },
+                            },
+                        ],
+                    },
+                ],
+                temperature=0.1,
+            )
+            raw = _strip_fences(response.choices[0].message.content)
+            return json.loads(raw)
         except json.JSONDecodeError as e:
-            logger.error("[extract_vision] JSON parse error: %s | raw: %.300s", e, raw)
+            print(f"[LLMService.extract_vision] JSON parse error: {e}")
+            return None
+        except Exception as e:
+            print(f"[LLMService.extract_vision] Error: {e}")
             return None
 
     async def extract_event(self, text: str) -> Optional[EventSchema]:
@@ -189,8 +187,9 @@ class LLMService:
         try:
             return EventSchema(**data)
         except Exception as e:
-            logger.error("[extract_event] Schema validation error: %s", e)
+            print(f"[LLMService.extract_event] Schema validation error: {e}")
             return None
 
 
+# Singleton
 llm_service = LLMService()
