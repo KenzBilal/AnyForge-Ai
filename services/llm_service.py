@@ -7,13 +7,10 @@ Three capabilities:
   2. extract_vision() — Multi-modal extraction from images (base64 or URL)
   3. extract_event()  — Legacy wrapper for backwards-compat with webhooks
 
-Improvements over v1:
-  - Lazy initialisation — no crash at import time if GEMINI_API_KEY is missing
-  - configure() called explicitly during app lifespan (startup)
-  - Retry logic (up to 3 attempts) with exponential back-off
-  - Structured logging throughout
-  - Safer base64 / URL handling
-  - Grounding limitation documented and handled cleanly
+Fixes in v2.2:
+  - Removed response_mime_type="application/json" — unsupported on gemini-2.0-flash
+  - Fixed grounding tool API for google-generativeai==0.8.3
+  - Relies purely on system prompt + _strip_fences for JSON extraction
 """
 
 import json
@@ -29,13 +26,11 @@ from pydantic import BaseModel
 
 logger = logging.getLogger("anyforge.llm")
 
-# ── Model config ───────────────────────────────────────────────────────────────
 MODEL_NAME    = "gemini-2.0-flash"
 MAX_RETRIES   = 3
-RETRY_DELAY_S = 1.5   # seconds; doubled each retry
+RETRY_DELAY_S = 1.5
 
 
-# ── Backwards-compat schema (used by webhooks.py) ─────────────────────────────
 class EventSchema(BaseModel):
     title:         str
     description:   str
@@ -48,7 +43,6 @@ class EventSchema(BaseModel):
     status:        str = "draft"
 
 
-# ── Prompts ────────────────────────────────────────────────────────────────────
 BASE_SYSTEM_PROMPT = """\
 You are AnyForge-AI, a universal structured-data extraction engine.
 Your ONLY job is to read the provided content and return a valid JSON object
@@ -75,9 +69,7 @@ EVENT_SCHEMA_DESCRIPTION = """{
 }"""
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
 def _strip_fences(text: str) -> str:
-    """Remove accidental markdown code fences from model output."""
     text = text.strip()
     if text.startswith("```"):
         parts = text.split("```")
@@ -94,17 +86,10 @@ def _build_prompt(user_content: str, target_schema: str, extra_instructions: str
     return prompt
 
 
-# ── Service ────────────────────────────────────────────────────────────────────
 class LLMService:
-    """
-    Lazy-initialised Gemini service.
-    Call configure() once at app startup (inside the lifespan hook).
-    """
-
     _configured: bool = False
 
     def configure(self) -> None:
-        """Explicitly configure the Gemini client. Safe to call multiple times."""
         if self._configured:
             return
         api_key = os.getenv("GEMINI_API_KEY")
@@ -120,56 +105,33 @@ class LLMService:
 
     def _get_model(self, use_grounding: bool = False) -> genai.GenerativeModel:
         self._ensure_configured()
-        tools = []
+        tools = None
         if use_grounding:
-            tools.append(genai.protos.Tool(
-                google_search=genai.protos.GoogleSearch()
-            ))
+            tools = [{"google_search_retrieval": {}}]
         return genai.GenerativeModel(
             model_name=MODEL_NAME,
             system_instruction=BASE_SYSTEM_PROMPT,
-            tools=tools if tools else None,
+            tools=tools,
         )
 
-    def _generation_config(self, use_grounding: bool) -> genai.types.GenerationConfig:
-        """
-        Note: response_mime_type="application/json" is incompatible with grounding tools.
-        When grounding is on we rely on the system prompt + manual JSON parsing.
-        """
-        if use_grounding:
-            return genai.types.GenerationConfig(temperature=0.1)
-        return genai.types.GenerationConfig(
-            temperature=0.1,
-            response_mime_type="application/json",
-        )
+    def _generation_config(self) -> genai.types.GenerationConfig:
+        # response_mime_type="application/json" is NOT supported on gemini-2.0-flash.
+        # We rely on system prompt + _strip_fences for clean JSON output.
+        return genai.types.GenerationConfig(temperature=0.1)
 
-    async def _generate_with_retry(
-        self,
-        model: genai.GenerativeModel,
-        content,
-        generation_config: genai.types.GenerationConfig,
-        context: str = "extract",
-    ) -> Optional[str]:
-        """Call generate_content_async with exponential-backoff retry."""
+    async def _generate_with_retry(self, model, content, context: str = "extract") -> Optional[str]:
+        config = self._generation_config()
         delay = RETRY_DELAY_S
         for attempt in range(1, MAX_RETRIES + 1):
             try:
-                response = await model.generate_content_async(
-                    content,
-                    generation_config=generation_config,
-                )
+                response = await model.generate_content_async(content, generation_config=config)
                 return response.text
             except Exception as e:
-                logger.warning(
-                    "[%s] Gemini attempt %d/%d failed: %s",
-                    context, attempt, MAX_RETRIES, e,
-                )
+                logger.warning("[%s] Gemini attempt %d/%d failed: %s", context, attempt, MAX_RETRIES, e)
                 if attempt < MAX_RETRIES:
                     await asyncio.sleep(delay)
                     delay *= 2
         return None
-
-    # ── Public API ─────────────────────────────────────────────────────────────
 
     async def extract_any(
         self,
@@ -178,18 +140,11 @@ class LLMService:
         extra_instructions: str = "",
         use_grounding: bool = False,
     ) -> Optional[dict]:
-        """
-        Dynamic schema extraction from any text.
-        Returns a dict matching target_schema, or None on failure.
-        """
-        model  = self._get_model(use_grounding)
-        config = self._generation_config(use_grounding)
+        model = self._get_model(use_grounding)
         full_prompt = _build_prompt(prompt, target_schema, extra_instructions)
-
-        raw = await self._generate_with_retry(model, full_prompt, config, "extract_any")
+        raw = await self._generate_with_retry(model, full_prompt, "extract_any")
         if raw is None:
             return None
-
         try:
             return json.loads(_strip_fences(raw))
         except json.JSONDecodeError as e:
@@ -205,15 +160,9 @@ class LLMService:
         extra_instructions: str = "",
         use_grounding: bool = False,
     ) -> Optional[dict]:
-        """
-        Multi-modal image extraction — receipts, flyers, handwritten notes, etc.
-        Supply EITHER image_base64 OR image_url.
-        Returns a dict matching target_schema, or None on failure.
-        """
         if not image_base64 and not image_url:
             raise ValueError("Provide either image_base64 or image_url.")
 
-        # Download image from URL if needed
         if image_url and not image_base64:
             try:
                 async with httpx.AsyncClient(timeout=15) as client:
@@ -227,35 +176,27 @@ class LLMService:
                 logger.error("[extract_vision] Failed to fetch image URL %s: %s", image_url, e)
                 return None
 
-        # Strip data-URI prefix if present (e.g. "data:image/png;base64,...")
         if image_base64 and "," in image_base64:
             image_base64 = image_base64.split(",", 1)[1]
 
-        model  = self._get_model(use_grounding)
-        config = self._generation_config(use_grounding)
-
-        text_part  = _build_prompt(
+        model = self._get_model(use_grounding)
+        text_part = _build_prompt(
             "[See the attached image — extract all relevant information from it]",
             target_schema,
             extra_instructions,
         )
         image_part = {"mime_type": image_mime_type, "data": image_base64}
 
-        raw = await self._generate_with_retry(
-            model, [text_part, image_part], config, "extract_vision"
-        )
+        raw = await self._generate_with_retry(model, [text_part, image_part], "extract_vision")
         if raw is None:
             return None
-
         try:
             return json.loads(_strip_fences(raw))
         except json.JSONDecodeError as e:
             logger.error("[extract_vision] JSON parse error: %s | raw: %.300s", e, raw)
             return None
 
-    # ── Legacy wrapper ─────────────────────────────────────────────────────────
     async def extract_event(self, text: str) -> Optional[EventSchema]:
-        """Used by webhooks.py — delegates to extract_any with the EventSchema."""
         data = await self.extract_any(
             prompt=text,
             target_schema=EVENT_SCHEMA_DESCRIPTION,
@@ -270,5 +211,4 @@ class LLMService:
             return None
 
 
-# Module-level singleton — lazy, safe to import before configure() is called
 llm_service = LLMService()
