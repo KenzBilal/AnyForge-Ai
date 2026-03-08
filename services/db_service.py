@@ -15,7 +15,7 @@ import os
 import logging
 from typing import Optional
 
-from supabase import AsyncClient, acreate_client
+from supabase._async.client import AsyncClient, create_client as acreate_client
 
 logger = logging.getLogger("anyforge.db")
 
@@ -39,7 +39,7 @@ class DBService:
             raise ValueError(
                 "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set."
             )
-        client: AsyncClient = await acreate_client(url, key)
+        client: AsyncClient = await acreate_client(url, key)  # type: ignore
         logger.info("Supabase async client created for: %s", url)
         return cls(client)
 
