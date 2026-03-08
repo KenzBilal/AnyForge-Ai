@@ -26,7 +26,7 @@ from pydantic import BaseModel
 
 logger = logging.getLogger("anyforge.llm")
 
-MODEL_NAME    = "gemini-2.0-flash"
+MODEL_NAME    = "gemini-1.5-flash"
 MAX_RETRIES   = 3
 RETRY_DELAY_S = 1.5
 
@@ -115,9 +115,10 @@ class LLMService:
         )
 
     def _generation_config(self) -> genai.types.GenerationConfig:
-        # response_mime_type="application/json" is NOT supported on gemini-2.0-flash.
-        # We rely on system prompt + _strip_fences for clean JSON output.
-        return genai.types.GenerationConfig(temperature=0.1)
+        return genai.types.GenerationConfig(
+            temperature=0.1,
+            response_mime_type="application/json",
+        )
 
     async def _generate_with_retry(self, model, content, context: str = "extract") -> Optional[str]:
         config = self._generation_config()
