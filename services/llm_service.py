@@ -1,16 +1,8 @@
 """
 AnyForge-AI — Core LLM Service
 ================================
-Three capabilities:
-
-  1. extract_any()    — Dynamic schema extraction from any text
-  2. extract_vision() — Multi-modal extraction from images (base64 or URL)
-  3. extract_event()  — Legacy wrapper for backwards-compat with webhooks
-
-Fixes in v2.2:
-  - Removed response_mime_type="application/json" — unsupported on gemini-2.0-flash
-  - Fixed grounding tool API for google-generativeai==0.8.3
-  - Relies purely on system prompt + _strip_fences for JSON extraction
+Uses the new `google-genai` SDK (v1.x) which supports gemini-1.5-flash
+on the free tier with no billing required.
 """
 
 import json
@@ -21,12 +13,13 @@ import logging
 from typing import Optional
 
 import httpx
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from pydantic import BaseModel
 
 logger = logging.getLogger("anyforge.llm")
 
-MODEL_NAME    = "gemini-1.5-flash-latest"
+MODEL_NAME    = "gemini-1.5-flash"
 MAX_RETRIES   = 3
 RETRY_DELAY_S = 1.5
 
@@ -88,6 +81,7 @@ def _build_prompt(user_content: str, target_schema: str, extra_instructions: str
 
 class LLMService:
     _configured: bool = False
+    _client: Optional[genai.Client] = None
 
     def configure(self) -> None:
         if self._configured:
@@ -95,7 +89,7 @@ class LLMService:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise ValueError("GEMINI_API_KEY environment variable is not set.")
-        genai.configure(api_key=api_key)
+        self._client = genai.Client(api_key=api_key)
         self._configured = True
         logger.info("Gemini configured with model: %s", MODEL_NAME)
 
@@ -103,29 +97,25 @@ class LLMService:
         if not self._configured:
             self.configure()
 
-    def _get_model(self, use_grounding: bool = False) -> genai.GenerativeModel:
-        self._ensure_configured()
-        tools = None
-        if use_grounding:
-            tools = [{"google_search_retrieval": {}}]
-        return genai.GenerativeModel(
-            model_name=MODEL_NAME,
+    def _get_config(self) -> types.GenerateContentConfig:
+        return types.GenerateContentConfig(
             system_instruction=BASE_SYSTEM_PROMPT,
-            tools=tools,
-        )
-
-    def _generation_config(self) -> genai.types.GenerationConfig:
-        return genai.types.GenerationConfig(
             temperature=0.1,
             response_mime_type="application/json",
         )
 
-    async def _generate_with_retry(self, model, content, context: str = "extract") -> Optional[str]:
-        config = self._generation_config()
+    async def _generate_with_retry(self, contents, context: str = "extract") -> Optional[str]:
+        self._ensure_configured()
+        config = self._get_config()
         delay = RETRY_DELAY_S
         for attempt in range(1, MAX_RETRIES + 1):
             try:
-                response = await model.generate_content_async(content, generation_config=config)
+                response = await asyncio.to_thread(
+                    self._client.models.generate_content,
+                    model=MODEL_NAME,
+                    contents=contents,
+                    config=config,
+                )
                 return response.text
             except Exception as e:
                 logger.warning("[%s] Gemini attempt %d/%d failed: %s", context, attempt, MAX_RETRIES, e)
@@ -141,9 +131,8 @@ class LLMService:
         extra_instructions: str = "",
         use_grounding: bool = False,
     ) -> Optional[dict]:
-        model = self._get_model(use_grounding)
         full_prompt = _build_prompt(prompt, target_schema, extra_instructions)
-        raw = await self._generate_with_retry(model, full_prompt, "extract_any")
+        raw = await self._generate_with_retry(full_prompt, "extract_any")
         if raw is None:
             return None
         try:
@@ -180,15 +169,16 @@ class LLMService:
         if image_base64 and "," in image_base64:
             image_base64 = image_base64.split(",", 1)[1]
 
-        model = self._get_model(use_grounding)
         text_part = _build_prompt(
             "[See the attached image — extract all relevant information from it]",
             target_schema,
             extra_instructions,
         )
-        image_part = {"mime_type": image_mime_type, "data": image_base64}
-
-        raw = await self._generate_with_retry(model, [text_part, image_part], "extract_vision")
+        image_part = types.Part.from_bytes(
+            data=base64.b64decode(image_base64),
+            mime_type=image_mime_type,
+        )
+        raw = await self._generate_with_retry([text_part, image_part], "extract_vision")
         if raw is None:
             return None
         try:
