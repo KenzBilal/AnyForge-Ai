@@ -26,7 +26,7 @@ from pydantic import BaseModel
 
 logger = logging.getLogger("anyforge.llm")
 
-MODEL_NAME    = "gemini-1.5-flash"
+MODEL_NAME    = "gemini-1.5-flash-latest"
 MAX_RETRIES   = 3
 RETRY_DELAY_S = 1.5
 
