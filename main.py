@@ -1,50 +1,106 @@
+"""
+AnyForge-AI — Entry Point
+==========================
+FastAPI app init, lifespan, middleware, and router registration.
+"""
+
+import os
+import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+
+import uvicorn
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
 from routers import webhooks, generator
 from services import db_service as db_module
-import uvicorn
-import os
+from services.llm_service import llm_service  # lazy-safe singleton
 
+# ── Logging ────────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+)
+logger = logging.getLogger("anyforge")
+
+
+# ── Startup / Shutdown ─────────────────────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Runs once at startup / shutdown.
-    We await the async Supabase client here and store it on app.state so
-    routers can access it via request.app.state.db — no global singleton needed.
-    """
-    print("[Startup] Initialising async Supabase client...")
-    app.state.db = await db_module.DBService.create()
-    print("[Startup] Supabase client ready.")
-    yield
-    print("[Shutdown] AnyForge-AI stopped.")
+    logger.info("Starting AnyForge-AI...")
 
+    # Validate required env vars before doing anything else
+    missing = [v for v in ("GEMINI_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")
+               if not os.getenv(v)]
+    if missing:
+        raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
+
+    # Initialise async Supabase client once and store on app.state
+    logger.info("Initialising Supabase client...")
+    app.state.db = await db_module.DBService.create()
+    logger.info("Supabase client ready.")
+
+    # Validate Gemini is configured (llm_service init is lazy-safe now)
+    llm_service.configure()
+    logger.info("Gemini LLM service ready.")
+
+    yield
+
+    logger.info("AnyForge-AI shutting down.")
+
+
+# ── App ────────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="AnyForge-AI Agent",
-    description="Universal structured-data extraction microservice — text, vision, and web-grounded",
-    version="2.0.0",
+    title="AnyForge-AI",
+    description="Universal structured-data extraction microservice — text, vision, and web-grounded.",
+    version="2.1.0",
     lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
+
+# ── CORS ───────────────────────────────────────────────────────────────────────
+
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict to your domains in production
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+# ── Global exception handler ───────────────────────────────────────────────────
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception(f"Unhandled error on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"status": "error", "detail": "Internal server error."},
+    )
+
+
+# ── Routers ────────────────────────────────────────────────────────────────────
+
 app.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks"])
 app.include_router(generator.router, prefix="/api/v1", tags=["Generator"])
 
 
-@app.get("/health")
-async def health_check():
-    return {"status": "ok", "service": "AnyForge-AI"}
+# ── Health ─────────────────────────────────────────────────────────────────────
 
+@app.get("/health", tags=["Health"])
+async def health_check():
+    return {"status": "ok", "service": "AnyForge-AI", "version": "2.1.0"}
+
+
+# ── Local dev ──────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
