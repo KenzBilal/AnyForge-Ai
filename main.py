@@ -1,6 +1,6 @@
 """
-AnyForge-AI — Main Application
-================================
+AnyForge-AI — Main Application v2
+====================================
 Universal structured-data extraction microservice.
 """
 
@@ -17,24 +17,22 @@ if _missing:
 
 from services import db_service as db_module
 from services.llm_service import llm_service
-from routers import generator, webhooks
+from routers import generator, webhooks, admin
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     db_module.db_service = db_module.DBService.create()
     llm_service.configure()
-    print("[AnyForge-AI] Started successfully.")
+    print("[AnyForge-AI] v2 started successfully.")
     yield
-    # Shutdown
     print("[AnyForge-AI] Shutting down.")
 
 
 app = FastAPI(
     title="AnyForge-AI",
     description="Universal structured-data extraction microservice",
-    version="2.1.0",
+    version="2.2.0",
     lifespan=lifespan,
 )
 
@@ -48,8 +46,9 @@ app.add_middleware(
 
 app.include_router(generator.router)
 app.include_router(webhooks.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "AnyForge-AI", "version": "2.1.0"}
+    return {"status": "ok", "service": "AnyForge-AI", "version": "2.2.0"}
