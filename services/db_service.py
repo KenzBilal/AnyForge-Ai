@@ -2,31 +2,31 @@
 AnyForge-AI — Database Service
 ================================
 Universal multi-tenant DB operations.
-Client authentication and extraction logging only.
+Uses sync Supabase client (works with all supabase versions).
 """
 
 import os
 from typing import Optional
-from supabase import AsyncClient, acreate_client
+from supabase import create_client, Client
 
 
 class DBService:
-    def __init__(self, client: AsyncClient):
+    def __init__(self, client: Client):
         self.client = client
 
     @classmethod
-    async def create(cls) -> "DBService":
+    def create(cls) -> "DBService":
         url = os.getenv("SUPABASE_URL")
         key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
         if not url or not key:
             raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
-        client: AsyncClient = await acreate_client(url, key)
+        client: Client = create_client(url, key)
         return cls(client)
 
-    async def validate_api_key(self, api_key: str) -> Optional[dict]:
+    def validate_api_key(self, api_key: str) -> Optional[dict]:
         try:
             result = (
-                await self.client.table("clients")
+                self.client.table("clients")
                 .select("id, project_name")
                 .eq("api_key", api_key)
                 .eq("is_active", True)
@@ -38,7 +38,7 @@ class DBService:
             print(f"[DBService] API key validation error: {e}")
             return None
 
-    async def log_extraction(
+    def log_extraction(
         self,
         client_id: str,
         endpoint_used: str,
@@ -50,7 +50,7 @@ class DBService:
         error_message: Optional[str] = None,
     ) -> None:
         try:
-            await self.client.table("extraction_logs").insert({
+            self.client.table("extraction_logs").insert({
                 "client_id":      client_id,
                 "endpoint_used":  endpoint_used,
                 "target_schema":  target_schema[:2000],
