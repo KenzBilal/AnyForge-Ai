@@ -18,19 +18,8 @@ from groq import Groq
 from pydantic import BaseModel, create_model
 import instructor
 
-
-# ── EventSchema (used by email webhook) ───────────────────────────────────────
-class EventSchema(BaseModel):
-    title: str
-    description: str
-    category: str
-    location: str
-    start_date: str
-    end_date: str
-    max_attendees: int
-    is_public: bool
-    status: str = "draft"
-
+from schemas.extraction import EventSchema
+from core.config import settings
 
 # ── Config ────────────────────────────────────────────────────────────────────
 TEXT_MODEL   = "llama-3.3-70b-versatile"
@@ -107,7 +96,7 @@ class LLMService:
 
     def configure(self):
         """Called once at startup to initialise the Groq client with Instructor."""
-        api_key = os.getenv("GROQ_API_KEY")
+        api_key = settings.GROQ_API_KEY
         if not api_key:
             raise ValueError("GROQ_API_KEY environment variable is not set")
         base_client = Groq(api_key=api_key)

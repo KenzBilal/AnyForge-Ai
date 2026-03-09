@@ -41,7 +41,7 @@ export default function Landing() {
           className="flex flex-col items-center text-center mt-12 mb-32"
         >
           <motion.div variants={fadeInUp} className="mb-8">
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.03] border border-white/10 text-xs font-mono text-[#8B5CF6] tracking-wide shadow-[0_0_15px_rgba(139,92,246,0.15)]">
+            <span className="inline-flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-full bg-white/[0.03] border border-white/10 text-[10px] md:text-xs font-mono text-[#8B5CF6] tracking-wide shadow-[0_0_15px_rgba(139,92,246,0.15)] text-center break-words max-w-full">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#8B5CF6] opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[#8B5CF6]"></span>
@@ -52,7 +52,7 @@ export default function Landing() {
 
           <motion.h1 
             variants={fadeInUp}
-            className="text-5xl md:text-7xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white via-gray-200 to-gray-500 mb-6 drop-shadow-sm max-w-4xl"
+            className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white via-gray-200 to-gray-500 mb-6 drop-shadow-sm max-w-4xl"
             style={{ lineHeight: 1.1 }}
           >
             Extract Anything into <br className="hidden md:block"/> 
@@ -61,19 +61,19 @@ export default function Landing() {
 
           <motion.p 
             variants={fadeInUp}
-            className="text-lg md:text-xl text-gray-400 max-w-2xl mb-12 leading-relaxed"
+            className="text-base md:text-xl text-gray-400 max-w-2xl mb-12 leading-relaxed px-2"
           >
             Stop writing brittle Regex and manual parsers. Feed AnyForge-AI any unstructured text, email, PDF, or image, and get deterministic, perfectly structured data back in milliseconds.
           </motion.p>
 
-          <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row gap-4 mb-24">
-            <Link to="/playground" className="group relative px-8 py-4 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white rounded-xl font-bold transition-all shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:shadow-[0_0_45px_rgba(139,92,246,0.5)] active:scale-95 text-lg flex items-center justify-center">
+          <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row gap-4 mb-24 w-full sm:w-auto px-4 sm:px-0">
+            <Link to="/playground" className="group relative w-full sm:w-auto px-8 py-4 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white rounded-xl font-bold transition-all shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:shadow-[0_0_45px_rgba(139,92,246,0.5)] active:scale-95 text-base md:text-lg flex items-center justify-center">
               Try the Playground
               <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </Link>
-            <Link to="/docs" className="px-8 py-4 bg-white/[0.03] hover:bg-white/[0.08] text-gray-300 border border-white/10 rounded-xl font-bold transition-all active:scale-95 text-lg flex items-center justify-center">
+            <Link to="/docs" className="w-full sm:w-auto px-8 py-4 bg-white/[0.03] hover:bg-white/[0.08] text-gray-300 border border-white/10 rounded-xl font-bold transition-all active:scale-95 text-base md:text-lg flex items-center justify-center">
               Read the Docs
             </Link>
           </motion.div>
@@ -90,9 +90,9 @@ export default function Landing() {
               <div className="mx-auto text-xs font-mono text-gray-500 tracking-wider">extraction_pipeline.py</div>
             </div>
             <div className="grid md:grid-cols-2 text-left font-mono text-[13px] md:text-sm">
-              <div className="p-6 border-b md:border-b-0 md:border-r border-white/5 bg-black/40 min-h-[250px] relative">
+              <div className="p-4 md:p-6 border-b md:border-b-0 md:border-r border-white/5 bg-black/40 min-h-[200px] md:min-h-[250px] relative">
                 <div className="text-gray-500 mb-4 select-none"># 1. Messy Input Data</div>
-                <div className="text-gray-300 leading-relaxed">
+                <div className="text-gray-300 leading-relaxed text-xs md:text-sm">
                   {typedText}
                   <span className="inline-block w-2 h-4 bg-[#8B5CF6] animate-pulse ml-1 align-middle" />
                 </div>
@@ -140,7 +140,7 @@ export default function Landing() {
             <StepCard 
               icon={<FileInput className="w-8 h-8 text-[#8B5CF6]" />}
               step="Step 1: Ingest"
-              description="Send us raw text, forward an email, or upload a photo of a receipt."
+              description="Send us raw text, forward an email, or upload a photo."
               delay={0}
             />
             <StepCard 
@@ -218,7 +218,7 @@ export default function Landing() {
             <motion.div variants={fadeInUp} className="md:col-span-2 glass-panel rounded-3xl p-8 border border-white/5 relative overflow-hidden group hover:border-[#EC4899]/30 transition-all duration-300">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[100px] bg-[#EC4899]/10 blur-[60px] group-hover:bg-[#EC4899]/20 transition-all duration-500 rounded-full" />
               <div className="relative z-10 flex flex-col h-full justify-between md:flex-row md:items-end">
-                <div className="mb-4 md:mb-0 max-w-sm">
+                <div className="mb-6 md:mb-0 max-w-sm">
                   <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 mb-6">
                     <Webhook className="w-6 h-6 text-[#EC4899]" />
                   </div>
@@ -226,7 +226,7 @@ export default function Landing() {
                   <p className="text-gray-400 text-sm leading-relaxed">Map inbound email addresses directly to your API keys for asynchronous processing.</p>
                 </div>
                 {/* Visual snippet for async */}
-                <div className="bg-[#09090B] border border-white/10 rounded-xl p-4 font-mono text-xs text-gray-400 shadow-xl self-start md:self-auto w-full md:w-auto">
+                <div className="bg-[#09090B] border border-white/10 rounded-xl p-4 font-mono text-[10px] sm:text-xs text-gray-400 shadow-xl self-start md:self-auto w-full md:w-auto overflow-x-auto">
                   <span className="text-[#8B5CF6]">POST</span> /api/v1/generate/async <br/>
                   <span className="text-white">{"{"}</span> <br/>
                   &nbsp;&nbsp;<span className="text-[#6366F1]">"webhook_url"</span>: <span className="text-emerald-400">"https://..."</span><br/>
@@ -250,8 +250,8 @@ export default function Landing() {
             <p className="text-gray-400 max-w-xl mx-auto">Enterprise-grade architecture that plays nice with your pipelines.</p>
           </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <motion.div variants={fadeInUp} className="text-center md:text-left flex flex-col items-center md:items-start group">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
+            <motion.div variants={fadeInUp} className="text-center sm:text-left flex flex-col items-center sm:items-start group">
               <div className="w-14 h-14 rounded-2xl bg-white/[0.02] border border-white/10 flex items-center justify-center mb-6 shadow-inner group-hover:border-[#8B5CF6]/40 transition-colors">
                 <Box className="w-7 h-7 text-[#8B5CF6]" />
               </div>
@@ -259,7 +259,7 @@ export default function Landing() {
               <p className="text-gray-400 leading-relaxed">Zero memory bloat. Deploy horizontally across thousands of containers.</p>
             </motion.div>
             
-            <motion.div variants={fadeInUp} className="text-center md:text-left flex flex-col items-center md:items-start group">
+            <motion.div variants={fadeInUp} className="text-center sm:text-left flex flex-col items-center sm:items-start group">
               <div className="w-14 h-14 rounded-2xl bg-white/[0.02] border border-white/10 flex items-center justify-center mb-6 shadow-inner group-hover:border-[#6366F1]/40 transition-colors">
                 <FastForward className="w-7 h-7 text-[#6366F1]" />
               </div>
@@ -267,7 +267,7 @@ export default function Landing() {
               <p className="text-gray-400 leading-relaxed">Routing through LPUs ensures your data pipelines never bottleneck.</p>
             </motion.div>
             
-            <motion.div variants={fadeInUp} className="text-center md:text-left flex flex-col items-center md:items-start group">
+            <motion.div variants={fadeInUp} className="text-center sm:text-left flex flex-col items-center sm:items-start group sm:col-span-2 md:col-span-1">
               <div className="w-14 h-14 rounded-2xl bg-white/[0.02] border border-white/10 flex items-center justify-center mb-6 shadow-inner group-hover:border-emerald-400/40 transition-colors">
                 <Activity className="w-7 h-7 text-emerald-400" />
               </div>
@@ -294,12 +294,12 @@ export default function Landing() {
             <h2 className="text-4xl md:text-5xl font-extrabold text-white mb-6 drop-shadow-md">
               Ready to retire your parsers?
             </h2>
-            <p className="text-xl text-gray-300 mb-10 max-w-2xl font-light">
+            <p className="text-lg md:text-xl text-gray-300 mb-10 max-w-2xl font-light">
               Get your API key in seconds and build robust pipelines that scale.
             </p>
-            <Link to="/dashboard" className="group relative px-10 py-5 bg-white text-[#09090B] rounded-xl font-bold transition-all shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:shadow-[0_0_60px_rgba(255,255,255,0.4)] active:scale-95 text-lg flex items-center justify-center hover:bg-gray-100 uppercase tracking-widest">
-              Start Extracting for Free
-              <svg className="w-5 h-5 ml-3 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <Link to="/dashboard" className="group relative w-full sm:w-auto px-6 sm:px-10 py-4 sm:py-5 bg-white text-[#09090B] rounded-xl font-bold transition-all shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:shadow-[0_0_60px_rgba(255,255,255,0.4)] active:scale-95 text-base sm:text-lg flex items-center justify-center hover:bg-gray-100 uppercase tracking-widest text-center">
+              Start Extracting Free
+              <svg className="w-5 h-5 ml-2 sm:ml-3 group-hover:translate-x-1 transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
               </svg>
             </Link>

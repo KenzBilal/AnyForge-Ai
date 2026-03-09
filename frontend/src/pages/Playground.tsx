@@ -26,28 +26,31 @@ export default function Playground() {
         <p className="text-gray-400">Design schemas, test models, and extract structured JSON instantly.</p>
       </div>
 
-      <div className="glass-panel rounded-xl p-4 mb-6 flex items-center gap-4 flex-shrink-0">
-        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-          <KeySquare className="text-gray-400 h-5 w-5" />
+      <div className="glass-panel rounded-xl p-4 mb-4 md:mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 flex-shrink-0">
+        <div className="flex items-center w-full sm:w-auto">
+          <div className="p-2 bg-white/5 rounded-lg border border-white/10 shrink-0">
+            <KeySquare className="text-gray-400 h-5 w-5" />
+          </div>
+          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block sm:hidden ml-3">API Authentication</label>
         </div>
-        <div className="flex-1 space-y-1">
-          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">API Authentication</label>
+        <div className="flex-1 w-full space-y-1">
+          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider hidden sm:block">API Authentication</label>
           <input 
             type="password" 
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder="af-..."
-            className="w-full max-w-sm bg-black/50 border border-white/10 rounded-md px-3 py-1.5 text-white focus:outline-none focus:border-primary transition-colors font-mono text-sm"
+            className="w-full max-w-sm bg-black/50 border border-white/10 rounded-md px-3 py-2 sm:py-1.5 text-white focus:outline-none focus:border-primary transition-colors font-mono text-sm"
           />
         </div>
       </div>
 
-      <div className="flex border-b border-white/10 mb-6 flex-shrink-0">
+      <div className="flex border-b border-white/10 mb-4 md:mb-6 flex-shrink-0 overflow-x-auto whitespace-nowrap custom-scrollbar">
         {(['text', 'vision', 'async'] as const).map((tab) => (
           <button 
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`relative pb-3 px-6 font-medium text-sm transition-colors capitalize ${
+            className={`relative pb-3 px-4 md:px-6 font-medium text-sm transition-colors capitalize shrink-0 ${
               activeTab === tab ? 'text-white' : 'text-gray-500 hover:text-gray-300'
             }`}
           >
@@ -62,9 +65,9 @@ export default function Playground() {
         ))}
       </div>
 
-      <div className="flex-1 grid lg:grid-cols-2 gap-6 min-h-0 overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 lg:min-h-0 overflow-y-auto lg:overflow-hidden">
         {/* LEFT PANEL: Inputs */}
-        <div className="flex flex-col h-full overflow-y-auto pr-2 space-y-6 custom-scrollbar">
+        <div className="flex flex-col lg:h-full lg:overflow-y-auto pr-0 lg:pr-2 space-y-4 md:space-y-6 lg:custom-scrollbar">
           {activeTab === 'text' ? (
             <TextInputs apiKey={apiKey} />
           ) : activeTab === 'vision' ? (
@@ -221,11 +224,10 @@ function TextInputs({ apiKey }: { apiKey: string }) {
         <RunButton onClick={handleExtract} loading={loading} disabled={false} />
       </div>
 
-      {/* RENDER IN RIGHT COLUMN VIA ABSOLUTE / PORTAL / CSS GRID WE MAPPED IT WRONG.
-          Wait, the grid is in Playground. We need to render OutputPanel in the right column.
-          Let's just use CSS tricks to absolute position it into the right grid track? No, Grid is complex.
-          Let's just return OutputPanel naturally, the Grid will place it in the second column! */}
-      <OutputPanel loading={loading} result={result} error={error} />
+      {/* RENDER IN RIGHT COLUMN */}
+      <div className="min-h-[400px] lg:min-h-0 lg:h-full">
+        <OutputPanel loading={loading} result={result} error={error} />
+      </div>
     </>
   );
 }
@@ -335,7 +337,9 @@ function VisionInputs({ apiKey }: { apiKey: string }) {
 
         <RunButton onClick={handleExtract} loading={loading} disabled={!base64} />
       </div>
-      <OutputPanel loading={loading} result={result} error={error} />
+      <div className="min-h-[400px] lg:min-h-0 lg:h-full">
+        <OutputPanel loading={loading} result={result} error={error} />
+      </div>
     </>
   );
 }
@@ -443,7 +447,9 @@ function AsyncInputs({ apiKey }: { apiKey: string }) {
         </div>
         <RunButton onClick={handleExtract} loading={loading} disabled={false} />
       </div>
-      <OutputPanel loading={loading} result={result} error={error} />
+      <div className="min-h-[400px] lg:min-h-0 lg:h-full">
+        <OutputPanel loading={loading} result={result} error={error} />
+      </div>
     </>
   );
 }

@@ -14,6 +14,8 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 from supabase import create_client, Client
 
+from core.config import settings
+
 
 class DBService:
     def __init__(self, client: Client):
@@ -21,8 +23,8 @@ class DBService:
 
     @classmethod
     def create(cls) -> "DBService":
-        url = os.getenv("SUPABASE_URL")
-        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        url = settings.SUPABASE_URL
+        key = settings.SUPABASE_SERVICE_ROLE_KEY
         if not url or not key:
             raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
         return cls(create_client(url, key))

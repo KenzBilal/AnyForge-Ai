@@ -10,6 +10,8 @@ import Dashboard from './pages/Dashboard';
 import HistoryPage from './pages/History';
 import Docs from './pages/Docs';
 import AdminDashboard from './pages/AdminDashboard';
+import Profile from './pages/Profile';
+import SecurityPolicies from './pages/SecurityPolicies';
 
 function App() {
   return (
@@ -24,6 +26,8 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/docs" element={<Docs />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/security" element={<SecurityPolicies />} />
         </Route>
       </Routes>
     </>

@@ -57,7 +57,7 @@ export default function AuthPage() {
     <div className="flex min-h-screen bg-[#09090B] text-gray-200 font-sans selection:bg-[#8B5CF6]/30 selection:text-white overflow-hidden">
       
       {/* 1. LEFT PANEL: The Authentication Form */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10">
+      <div className="w-full lg:w-1/2 flex flex-col justify-center px-6 sm:px-16 lg:px-24 xl:px-32 relative z-10 py-12 lg:py-0">
         
         {/* Ambient Glows for Left Panel */}
         <div className="absolute top-0 left-0 w-full h-[300px] bg-gradient-to-b from-[#8B5CF6]/5 to-transparent pointer-events-none" />

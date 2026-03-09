@@ -10,20 +10,20 @@ DELETE /admin/clients/{id}       — delete client
 GET  /admin/clients/{id}/usage   — detailed usage for one client
 """
 
-import os
 from typing import Optional
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Depends
 from pydantic import BaseModel, Field
+from core.config import settings
 from services import db_service as db_module
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-def _require_admin(admin_key: Optional[str]) -> None:
-    expected = os.getenv("ADMIN_API_KEY")
+def _require_admin(x_admin_key: Optional[str] = Header(None)) -> None:
+    expected = settings.ADMIN_API_KEY
     if not expected:
         raise HTTPException(status_code=503, detail={"error": "admin_not_configured", "message": "ADMIN_API_KEY env var not set."})
-    if admin_key != expected:
+    if x_admin_key != expected:
         raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Invalid admin key."})
 
 
@@ -38,8 +38,7 @@ class ToggleClientRequest(BaseModel):
 
 
 @router.get("/clients")
-def list_clients(x_admin_key: Optional[str] = Header(None)):
-    _require_admin(x_admin_key)
+def list_clients(admin=Depends(_require_admin)):
     db = db_module.db_service
     if not db:
         raise HTTPException(status_code=503, detail={"error": "db_not_ready"})
@@ -49,9 +48,8 @@ def list_clients(x_admin_key: Optional[str] = Header(None)):
 @router.post("/clients", status_code=201)
 def create_client(
     body: CreateClientRequest,
-    x_admin_key: Optional[str] = Header(None),
+    admin=Depends(_require_admin),
 ):
-    _require_admin(x_admin_key)
     db = db_module.db_service
     if not db:
         raise HTTPException(status_code=503, detail={"error": "db_not_ready"})
@@ -69,9 +67,8 @@ def create_client(
 def toggle_client(
     client_id: str,
     body: ToggleClientRequest,
-    x_admin_key: Optional[str] = Header(None),
+    admin=Depends(_require_admin),
 ):
-    _require_admin(x_admin_key)
     db = db_module.db_service
     if not db:
         raise HTTPException(status_code=503, detail={"error": "db_not_ready"})
@@ -84,9 +81,8 @@ def toggle_client(
 @router.delete("/clients/{client_id}")
 def delete_client(
     client_id: str,
-    x_admin_key: Optional[str] = Header(None),
+    admin=Depends(_require_admin),
 ):
-    _require_admin(x_admin_key)
     db = db_module.db_service
     if not db:
         raise HTTPException(status_code=503, detail={"error": "db_not_ready"})
@@ -99,9 +95,8 @@ def delete_client(
 @router.get("/clients/{client_id}/usage")
 def get_client_usage(
     client_id: str,
-    x_admin_key: Optional[str] = Header(None),
+    admin=Depends(_require_admin),
 ):
-    _require_admin(x_admin_key)
     db = db_module.db_service
     if not db:
         raise HTTPException(status_code=503, detail={"error": "db_not_ready"})
@@ -114,9 +109,8 @@ def get_client_usage(
 @router.post("/clients/{client_id}/rotate-key")
 def rotate_key(
     client_id: str,
-    x_admin_key: Optional[str] = Header(None),
+    admin=Depends(_require_admin),
 ):
-    _require_admin(x_admin_key)
     db = db_module.db_service
     if not db:
         raise HTTPException(status_code=503, detail={"error": "db_not_ready"})

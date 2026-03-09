@@ -21,15 +21,27 @@ Improvements over v1:
 
 import asyncio
 import logging
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 
-from services.llm_service import llm_service, EVENT_SCHEMA_DESCRIPTION
+from services.llm_service import llm_service
+from schemas.extraction import EventSchema
 
 logger = logging.getLogger("anyforge.webhooks")
 router = APIRouter()
 
+EVENT_SCHEMA_DESCRIPTION = """{
+  "title": "string — event name",
+  "description": "string — clean professional summary",
+  "category": "enum: Conference | Workshop | Meetup | Hackathon | Social | Religious | Sports | Other",
+  "location": "string — full address or TBD",
+  "start_date": "ISO 8601 timestamp",
+  "end_date": "ISO 8601 timestamp",
+  "max_attendees": "integer — default 100 if not stated",
+  "is_public": "boolean — default true",
+  "status": "always the string: draft"
+}"""
 
 class EmailWebhookPayload(BaseModel):
     """
@@ -50,11 +62,8 @@ class EmailWebhookPayload(BaseModel):
 )
 async def email_create_event(payload: EmailWebhookPayload, request: Request):
     """
-    Receives an inbound email webhook and extracts structured data via Gemini.
+    Receives an inbound email webhook and extracts structured data via Groq LLM.
     Always returns HTTP 200 so the email provider never retries.
-
-    To register an inbound address, add an `inbound_email` column to the
-    clients table and set it for each client row.
     """
     db = request.app.state.db
 
@@ -63,23 +72,17 @@ async def email_create_event(payload: EmailWebhookPayload, request: Request):
         payload.to, payload.sender_email, payload.subject,
     )
 
-    # ── Step 1: Map destination address → client ───────────────────────────────
-    # Looks up `inbound_email` column in clients table.
-    # Falls back gracefully if the column doesn't exist yet.
     client = await _resolve_client_by_email(db, str(payload.to).lower())
     if not client:
         logger.warning("No client registered for inbound address: %s", payload.to)
         return {"status": "ignored", "reason": "destination_not_registered"}
 
-    # ── Step 2: Determine target schema ───────────────────────────────────────
-    # Client can override by putting  schema::<description>  as the subject
     target_schema = EVENT_SCHEMA_DESCRIPTION
     subject_lower = payload.subject.strip().lower()
     if subject_lower.startswith("schema::"):
         target_schema = payload.subject.split("::", 1)[1].strip()
         logger.info("Schema override detected for client: %s", client["project_name"])
 
-    # ── Step 3: Call Gemini ───────────────────────────────────────────────────
     prompt = f"Subject: {payload.subject}\n\nEmail Body:\n{payload.text_body}".strip()
 
     result = await llm_service.extract_any(
@@ -89,7 +92,6 @@ async def email_create_event(payload: EmailWebhookPayload, request: Request):
 
     success = result is not None
 
-    # ── Step 4: Fire-and-forget audit log ─────────────────────────────────────
     try:
         asyncio.create_task(db.log_extraction(
             client_id=client["id"],
@@ -99,12 +101,11 @@ async def email_create_event(payload: EmailWebhookPayload, request: Request):
             output_json=result,
             grounding_used=False,
             success=success,
-            error_message=None if success else "Gemini extraction failed",
+            error_message=None if success else "LLM extraction failed",
         ))
     except Exception as e:
         logger.error("Could not schedule webhook log task: %s", e)
 
-    # ── Step 5: Return 200 regardless (email providers retry on non-200) ──────
     if not success:
         logger.error("Extraction failed | client=%s from=%s", client["project_name"], payload.sender_email)
         return {"status": "error", "reason": "ai_extraction_failed"}
@@ -116,19 +117,7 @@ async def email_create_event(payload: EmailWebhookPayload, request: Request):
         "data": result,
     }
 
-
-# ── Helper ─────────────────────────────────────────────────────────────────────
-
 async def _resolve_client_by_email(db, inbound_email: str) -> Optional[dict]:
-    """
-    Looks up a client row by its inbound_email address.
-    Returns None if not found or if the inbound_email column doesn't exist.
-
-    To enable this, run:
-        ALTER TABLE clients ADD COLUMN inbound_email TEXT UNIQUE;
-    Then set it per client:
-        UPDATE clients SET inbound_email = 'eventforge@anyforge.ai' WHERE project_name = 'EventForge';
-    """
     try:
         result = (
             await db.client.table("clients")

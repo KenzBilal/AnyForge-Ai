@@ -12,75 +12,13 @@ Features:
 
 import asyncio
 from typing import Optional
-from fastapi import APIRouter, Header, HTTPException, Request
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Depends
 from services import db_service as db_module
 from services.llm_service import llm_service
+from schemas.extraction import GenerateRequest, VisionRequest
+from api.dependencies import check_rate_limit_dep
 
 router = APIRouter(prefix="/api/v1", tags=["extraction"])
-
-
-class GenerateRequest(BaseModel):
-    prompt: str = Field(..., max_length=20000, description="Text to extract data from")
-    target_schema: str = Field(..., max_length=5000, description="JSON schema as string describing the output structure")
-    grounding: bool = False
-
-
-class VisionRequest(BaseModel):
-    image_base64: str = Field(..., description="Base64 encoded image")
-    mime_type: str = Field("image/jpeg", description="Image MIME type")
-    target_schema: str = Field(..., max_length=5000, description="JSON schema as string describing the output structure")
-
-
-def _authenticate(api_key: Optional[str]) -> dict:
-    """Validate API key and return client dict, or raise HTTPException."""
-    if not api_key:
-        raise HTTPException(
-            status_code=401,
-            detail={
-                "error": "missing_api_key",
-                "message": "X-API-Key header is required.",
-            }
-        )
-    db = db_module.db_service
-    if not db:
-        raise HTTPException(
-            status_code=503,
-            detail={"error": "service_unavailable", "message": "Database not ready. Try again shortly."}
-        )
-    client = db.validate_api_key(api_key)
-    if not client:
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "error": "invalid_api_key",
-                "message": "API key is invalid or has been deactivated.",
-            }
-        )
-    return client
-
-
-def _check_rate_limit(client: dict) -> None:
-    """Check rate limits and raise HTTPException if exceeded."""
-    db = db_module.db_service
-    if not db:
-        return
-    rate = db.check_rate_limit(
-        client_id=client["id"],
-        limit_per_min=client.get("rate_limit_per_min", 20),
-        daily_limit=client.get("daily_limit", 500),
-    )
-    if not rate["allowed"]:
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "error": "rate_limit_exceeded",
-                "message": rate["reason"],
-                "requests_this_minute": rate["requests_this_minute"],
-                "requests_today": rate["requests_today"],
-            }
-        )
-
 
 def _log(client, endpoint, schema, snippet, output, grounding, success, error=None):
     db = db_module.db_service
@@ -103,11 +41,8 @@ def _log(client, endpoint, schema, snippet, output, grounding, success, error=No
 @router.post("/generate")
 async def generate(
     body: GenerateRequest,
-    x_api_key: Optional[str] = Header(None),
+    client: dict = Depends(check_rate_limit_dep),
 ):
-    client = _authenticate(x_api_key)
-    _check_rate_limit(client)
-
     from services.privacy_service import privacy_service
     # Step 1: PII Scrubbing
     scrubbed_prompt = privacy_service.scrub_text(body.prompt)
@@ -144,11 +79,8 @@ async def generate(
 @router.post("/extract-vision")
 async def extract_vision(
     body: VisionRequest,
-    x_api_key: Optional[str] = Header(None),
+    client: dict = Depends(check_rate_limit_dep),
 ):
-    client = _authenticate(x_api_key)
-    _check_rate_limit(client)
-
     result, error = None, None
     success = False
 

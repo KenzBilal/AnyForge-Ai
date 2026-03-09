@@ -2,30 +2,33 @@
 AnyForge-AI — Main Application v2
 ====================================
 Universal structured-data extraction microservice.
+Now using Clean Architecture (Settings + Dependencies DI + Schemas)
 """
 
-import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# Validate required env vars at startup
-_REQUIRED = ["GROQ_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
-_missing = [v for v in _REQUIRED if not os.getenv(v)]
-if _missing:
-    raise RuntimeError(f"Missing required environment variables: {', '.join(_missing)}")
+# This triggers immediate validation of required environment variables 
+from core.config import settings
 
 from services import db_service as db_module
 from services.llm_service import llm_service
-from routers import generator, webhooks, admin, async_jobs
+from services.privacy_service import privacy_service
+from api.routes import generator, webhooks, admin, async_jobs
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize the core engines singletons
     db_module.db_service = db_module.DBService.create()
     llm_service.configure()
-    from services.privacy_service import privacy_service
     privacy_service.configure()
-    print("[AnyForge-AI] v2 started successfully.")
+    
+    # Store inside state for anything globally dependent on app
+    app.state.db = db_module.db_service
+    
+    print("[AnyForge-AI] v2 successfully injected and started.")
     yield
     print("[AnyForge-AI] Shutting down.")
 
@@ -45,6 +48,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Connect the heavily refactored cleanly separated REST APIs
 app.include_router(generator.router)
 app.include_router(webhooks.router)
 app.include_router(admin.router)
@@ -53,4 +57,4 @@ app.include_router(async_jobs.router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "AnyForge-AI", "version": "2.2.0"}
+    return {"status": "ok", "service": "AnyForge-AI (Clean Architecture)", "version": "2.2.0"}

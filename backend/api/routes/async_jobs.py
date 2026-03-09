@@ -2,9 +2,10 @@ import uuid
 import asyncio
 import httpx
 from typing import Optional, Dict
-from fastapi import APIRouter, Header, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel, HttpUrl
-from routers.generator import _authenticate, _check_rate_limit, _log
+from api.dependencies import check_rate_limit_dep, authenticate_api_key
+from api.routes.generator import _log
 from services.llm_service import llm_service
 from services.privacy_service import privacy_service
 
@@ -55,11 +56,8 @@ async def process_async_job(job_id: str, client: dict, prompt: str, schema: str,
 async def generate_async(
     body: AsyncGenerateRequest,
     background_tasks: BackgroundTasks,
-    x_api_key: Optional[str] = Header(None),
+    client: dict = Depends(check_rate_limit_dep),
 ):
-    client = _authenticate(x_api_key)
-    _check_rate_limit(client)
-    
     job_id = str(uuid.uuid4())
     jobs_store[job_id] = {"status": "queued", "result": None, "error": None}
     
@@ -75,8 +73,10 @@ async def generate_async(
     return {"job_id": job_id, "status": "queued"}
 
 @router.get("/jobs/{job_id}")
-async def get_job_status(job_id: str, x_api_key: Optional[str] = Header(None)):
-    _authenticate(x_api_key)
+async def get_job_status(
+    job_id: str, 
+    client: dict = Depends(authenticate_api_key)
+):
     if job_id not in jobs_store:
         raise HTTPException(status_code=404, detail="Job not found")
     return jobs_store[job_id]

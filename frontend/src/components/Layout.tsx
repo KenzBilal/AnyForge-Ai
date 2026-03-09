@@ -1,15 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, PlayCircle, Settings, History, BookOpen, Menu, Search, ChevronRight, LogOut } from 'lucide-react';
+import { Zap, PlayCircle, Settings, History, BookOpen, Menu, Search, ChevronRight, LogOut, User } from 'lucide-react';
 import CmdK from './CmdK';
 import { Toaster } from 'sonner';
 
 export default function Layout() {
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCmdOpen, setIsCmdOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -21,6 +27,7 @@ export default function Layout() {
     { name: 'Dashboard', path: '/dashboard', icon: Settings },
     { name: 'History', path: '/history', icon: History },
     { name: 'Docs', path: '/docs', icon: BookOpen },
+    { name: 'Profile', path: '/profile', icon: User },
   ];
 
   // Dynamic Breadcrumbs based on location
@@ -40,11 +47,27 @@ export default function Layout() {
       }} />
       <CmdK isOpen={isCmdOpen} setIsOpen={setIsCmdOpen} />
 
+      {/* Mobile Sidebar Overlay Backdrop */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Animated Collapsible Sidebar */}
       <motion.aside
         initial={false}
-        animate={{ width: isSidebarCollapsed ? 80 : 260 }}
-        className="flex flex-col h-full bg-[#09090B] border-r border-white/5 relative z-20"
+        animate={{ 
+          width: isSidebarCollapsed ? 80 : 260,
+          x: isMobileMenuOpen ? 0 : 'var(--sidebar-translate-x)' 
+        }}
+        className={`fixed md:relative flex flex-col h-full bg-[#09090B] border-r border-white/5 z-40 transition-transform md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="flex items-center justify-between p-5 border-b border-white/5">
           <Link to="/" className="flex items-center gap-3 overflow-hidden">
@@ -108,7 +131,7 @@ export default function Layout() {
         <div className="p-4 border-t border-white/5 flex flex-col items-center">
           <button 
             onClick={() => setSidebarCollapsed(!isSidebarCollapsed)}
-            className="w-full flex items-center justify-center p-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg transition-colors border border-transparent hover:border-white/10"
+            className="hidden md:flex w-full items-center justify-center p-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg transition-colors border border-transparent hover:border-white/10"
             title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
             <Menu className="h-5 w-5" />
@@ -120,11 +143,19 @@ export default function Layout() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#09090B]">
         {/* Floating Top Nav (Vercel Style) */}
-        <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-[#09090B]/80 backdrop-blur-md sticky top-0 z-10">
-          <div className="flex items-center text-sm">
-            <Link to="/" className="text-gray-400 hover:text-white transition-colors">kenzbilal</Link>
-            <ChevronRight className="w-4 h-4 mx-2 text-gray-600" />
-            <span className="text-gray-100 font-medium">{routeName}</span>
+        <header className="h-16 border-b border-white/5 flex items-center justify-between px-4 md:px-6 bg-[#09090B]/80 backdrop-blur-md sticky top-0 z-10 w-full">
+          <div className="flex items-center text-sm overflow-hidden">
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="md:hidden mr-3 p-1.5 -ml-1.5 text-gray-400 hover:text-white rounded-md hover:bg-white/5"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex items-center overflow-hidden whitespace-nowrap">
+              <Link to="/" className="text-gray-400 hover:text-white transition-colors truncate">kenzbilal</Link>
+              <ChevronRight className="w-4 h-4 mx-1.5 text-gray-600 flex-shrink-0" />
+              <span className="text-gray-100 font-medium truncate">{routeName}</span>
+            </div>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -140,7 +171,7 @@ export default function Layout() {
             {/* Logout Button */}
             <button 
               onClick={handleLogout}
-              className="flex items-center px-3 py-1.5 text-xs font-medium text-gray-400 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20 hover:border-red-500/30 rounded-md transition-all group"
+              className="hidden sm:flex items-center px-3 py-1.5 text-xs font-medium text-gray-400 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20 hover:border-red-500/30 rounded-md transition-all group"
               title="Log Out"
             >
               <LogOut className="w-3.5 h-3.5 mr-2 group-hover:scale-110 transition-transform" />
