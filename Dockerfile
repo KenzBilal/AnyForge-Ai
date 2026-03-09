@@ -24,8 +24,8 @@ COPY backend/ ./backend/
 # Set the working directory to the backend folder so uvicorn can find main.py
 WORKDIR /app/backend
 
-# Expose port (Railway overrides this with $PORT)
-EXPOSE 8000
+# Expose port
+EXPOSE $PORT
 
-# Run the FastAPI application using sh to properly evaluate the $PORT env variable
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Start application properly wrapping var execution
+CMD uvicorn main:app --host 0.0.0.0 --port $PORT
