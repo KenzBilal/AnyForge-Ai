@@ -16,5 +16,5 @@ COPY backend/ ./backend/
 
 WORKDIR /app/backend
 
-# Use shell form so $PORT is expanded from environment
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Use exec form to run main.py natively
+CMD ["python", "main.py"]

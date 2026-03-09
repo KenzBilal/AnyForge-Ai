@@ -1,168 +1,328 @@
-import { motion } from 'framer-motion';
-import { Shield, Lock, Eye, Database, Server, Key, FileText, CheckCircle2, ChevronRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Shield, Lock, Cpu, Server, Key, KeyRound, ArrowRight, Zap, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+const AccordionItem = ({ title, children, isOpen, onToggle }: { title: string, children: React.ReactNode, isOpen: boolean, onToggle: () => void }) => {
+  return (
+    <div className="border border-white/5 rounded-2xl overflow-hidden bg-white/[0.02] backdrop-blur-sm transition-colors hover:bg-white/[0.04]">
+      <button 
+        onClick={onToggle}
+        className="w-full text-left px-6 py-5 flex items-center justify-between focus:outline-none"
+      >
+        <h3 className="text-lg font-semibold text-white tracking-tight">{title}</h3>
+        <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180 text-primary' : ''}`} />
+      </button>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.04, 0.62, 0.23, 0.98] }}
+          >
+            <div className="px-6 pb-6 pt-2 text-gray-400 leading-relaxed text-sm border-t border-white/5 mx-6">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 export default function SecurityPolicies() {
-  const policies = [
+  const [openPolicy, setOpenPolicy] = useState<number | null>(0);
+
+  const pillars = [
     {
-      icon: Lock,
+      title: "Stateless Processing (Zero Retention)",
+      description: "Your data lives in memory for milliseconds. Once the JSON is extracted via our Groq/Llama 3.3 pipeline, the raw input is instantly vaporized. Optional zero-retention logging available for Enterprise.",
+      icon: Zap,
+      color: "from-emerald-400/20 to-teal-500/20",
+      accent: "text-emerald-400"
+    },
+    {
       title: "End-to-End Encryption",
-      description: "All data ingested by AnyForge is encrypted in transit using TLS 1.3 and at rest using AES-256.",
-      color: "from-blue-500 to-cyan-400"
+      description: "Data in transit is secured via TLS 1.3. Data at rest (metadata and API keys) is encrypted using AES-256 within our Supabase Postgres infrastructure.",
+      icon: Lock,
+      color: "from-purple-500/20 to-pink-500/20",
+      accent: "text-purple-400"
     },
     {
-      icon: Eye,
-      title: "Zero-Knowledge Architecture",
-      description: "We cannot read your raw document data. Once extraction is complete, data is instantly purged unless you explicitly opt-in to logging.",
-      color: "from-purple-500 to-pink-500"
+      title: "AI Model Privacy",
+      description: "We do not use your proprietary emails, receipts, or text to train our LLMs. Inference is strictly isolated.",
+      icon: Cpu,
+      color: "from-blue-500/20 to-cyan-400/20",
+      accent: "text-blue-400"
     },
     {
-      icon: Database,
-      title: "Data Residency & Compliance",
-      description: "Our infrastructure is SOC2 Type II, GDPR, and HIPAA compliant. Data is securely processed in regional AWS data centers.",
-      color: "from-emerald-400 to-teal-500"
-    },
-    {
-      icon: Key,
-      title: "Granular Access Control",
-      description: "Manage extraction APIs with strict Rate Limits and IP restrictions. Keys can be instantly rotated or revoked.",
-      color: "from-orange-400 to-red-500"
+      title: "Automated Key Rotation & Auth",
+      description: "Cryptographically secure `af-` prefix API keys. Map specific inbound email webhooks to isolated project keys to prevent cross-contamination.",
+      icon: KeyRound,
+      color: "from-orange-400/20 to-red-500/20",
+      accent: "text-orange-400"
     }
   ];
 
-  const details = [
-    "Strict Role-Based Access Control (RBAC) enforced at the database level.",
-    "Automated vulnerability scanning across all dependencies and Docker images.",
-    "Regular penetration testing conducted by independent third-party firms.",
-    "Comprehensive audit logging for all administrative actions and API access.",
-    "Mandatory Multi-Factor Authentication (MFA) for all internal employees.",
-    "Incident response team on standby 24/7/365."
-  ];
-
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-[#09090B] relative overflow-hidden flex flex-col items-center">
-      {/* Dynamic Background Effects */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute top-[40%] left-[50%] translate-x-[-50%] translate-y-[-50%] w-[60%] h-[40%] bg-primary/5 blur-[150px] rounded-full pointer-events-none" />
+    <div className="min-h-screen bg-[#09090B] text-gray-200 font-sans selection:bg-emerald-500/30 selection:text-emerald-200 pb-24 customized-scrollbar overflow-x-hidden relative">
+      <style>{`
+        .customized-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        .customized-scrollbar::-webkit-scrollbar-track {
+          background: #09090B;
+        }
+        .customized-scrollbar::-webkit-scrollbar-thumb {
+          background: #27272a;
+          border-radius: 4px;
+        }
+        .customized-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #3f3f46;
+        }
+      `}</style>
 
-      <div className="w-full max-w-5xl mx-auto px-6 py-16 relative z-10 flex flex-col gap-12">
-        {/* Header Section */}
-        <div className="text-center flex flex-col items-center gap-6">
+      {/* Grid Pattern Background */}
+      <div className="fixed inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+
+      {/* Subtle Glow Overlays */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-600/10 blur-[120px] rounded-full pointer-events-none opacity-50" />
+      <div className="absolute top-[40%] right-[-10%] w-[600px] h-[600px] bg-purple-600/10 blur-[150px] rounded-full pointer-events-none opacity-40" />
+
+      <div className="max-w-6xl mx-auto px-6 pt-32 relative z-10 flex flex-col gap-32">
+        
+        {/* 1. HERO SECTION */}
+        <section className="flex flex-col items-center text-center">
           <motion.div 
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, type: "spring" }}
-            className="w-20 h-20 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center shadow-[0_0_40px_rgba(139,92,246,0.2)] backdrop-blur-md relative"
+            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            whileInView={{ opacity: 1, scale: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="mb-8 relative"
           >
-            <Shield className="w-10 h-10 text-white" />
-            <div className="absolute inset-0 bg-gradient-to-tr from-primary/30 to-transparent rounded-2xl opacity-50 mix-blend-overlay" />
+             <div className="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full" />
+             <div className="relative inline-flex items-center gap-2 px-4 py-2 rounded-full border ring-1 ring-white/10 border-emerald-500/30 bg-black/40 backdrop-blur-md">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="font-mono text-xs text-emerald-400 font-medium tracking-wide">
+                  System Status: Secure & Encrypted
+                </span>
+             </div>
           </motion.div>
-          
-          <div className="space-y-4 max-w-2xl">
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-4xl md:text-5xl font-bold tracking-tight text-white"
-            >
-              Enterprise-Grade <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-400">Security</span>
-            </motion.h1>
-            <motion.p 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-lg text-gray-400 leading-relaxed"
-            >
-              At AnyForge, we treat your unstructured data with the highest level of confidentiality and integrity. Our platform is built from the ground up to exceed enterprise security standards.
-            </motion.p>
-          </div>
-        </div>
 
-        {/* Feature Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-          {policies.map((policy, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 + (idx * 0.1) }}
-              className="group relative bg-[#09090B] border border-white/10 rounded-2xl p-8 hover:bg-white/[0.02] transition-colors overflow-hidden"
-            >
-              <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${policy.color} opacity-[0.03] group-hover:opacity-[0.08] transition-opacity blur-2xl rounded-bl-full`} />
-              
-              <div className="flex items-start gap-5 relative z-10">
-                <div className={`mt-1 flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br ${policy.color} p-[1px]`}>
-                  <div className="w-full h-full bg-[#09090B] rounded-[11px] flex items-center justify-center">
-                    <policy.icon className="w-5 h-5 text-white opacity-80" />
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7, delay: 0.1 }}
+            className="text-5xl md:text-7xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-gray-200 to-gray-500 mb-6 drop-shadow-sm max-w-4xl"
+            style={{ lineHeight: 1.1 }}
+          >
+            Zero-Trust Architecture. <br/> Enterprise-Grade Security.
+          </motion.h1>
+
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7, delay: 0.2 }}
+            className="text-lg md:text-xl text-gray-400 max-w-3xl leading-relaxed mb-16"
+          >
+            AnyForge-AI is engineered to process your most sensitive unstructured data without ever compromising it. We don't read it, we don't train on it, and we don't keep it.
+          </motion.p>
+        </section>
+
+        {/* 2. CORE SECURITY PILLARS (BENTO GRID) */}
+        <section>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="mb-12 text-center"
+          >
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">The Four Pillars of Trust</h2>
+            <p className="text-gray-400">Architected for compliance from day one.</p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+            {pillars.map((pillar, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: idx * 0.1 }}
+                className="group relative bg-[#09090B] border border-white/5 rounded-3xl p-8 hover:bg-white/[0.02] transition-all duration-300 overflow-hidden ring-1 ring-white/5 hover:ring-primary/30 hover:-translate-y-1 shadow-2xl"
+              >
+                <div className={`absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br ${pillar.color} rounded-full blur-[60px] group-hover:blur-[80px] transition-all duration-500`} />
+                <div className="relative z-10">
+                  <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center mb-6 shadow-inner group-hover:border-white/20 transition-colors">
+                    <pillar.icon className={`w-6 h-6 ${pillar.accent}`} />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-xl font-semibold text-white tracking-tight">{policy.title}</h3>
-                  <p className="text-gray-400 leading-relaxed text-sm">
-                    {policy.description}
+                  <h3 className="text-xl font-bold text-white mb-3 tracking-tight">{pillar.title}</h3>
+                  <p className="text-gray-400 text-sm leading-relaxed overflow-hidden">
+                     {pillar.description.split(/(`[^`]+`)/).map((part, i) => 
+                        part.startsWith('`') && part.endsWith('`') 
+                          ? <code key={i} className="bg-white/10 px-1.5 py-0.5 rounded font-mono text-xs text-gray-300">{part.slice(1, -1)}</code>
+                          : <React.Fragment key={i}>{part}</React.Fragment>
+                      )}
                   </p>
                 </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Detailed List & Certification */}
-        <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.7 }}
-          className="mt-8 bg-gradient-to-b from-white/[0.04] to-transparent border border-white/10 rounded-3xl p-1 lg:p-1 overflow-hidden"
-        >
-          <div className="bg-[#121214] rounded-[22px] p-8 md:p-12 w-full h-full flex flex-col md:flex-row gap-12 items-center">
-            
-            <div className="flex-1 space-y-8">
-              <div className="space-y-2">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold uppercase tracking-wider mb-2">
-                  <Server className="w-3.5 h-3.5" /> Core Infrastructure
-                </div>
-                <h2 className="text-2xl font-bold text-white">Under the Hood</h2>
-                <p className="text-gray-400 text-sm">Rigorous technical controls implemented across our entire stack to ensure continuous safety.</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6">
-                {details.map((detail, idx) => (
-                  <div key={idx} className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
-                    <span className="text-sm text-gray-300 leading-relaxed">{detail}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="w-full md:w-80 flex-shrink-0 flex flex-col gap-4">
-              <div className="bg-black/40 border border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-4 relative overflow-hidden group hover:border-white/20 transition-colors">
-                <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <FileText className="w-10 h-10 text-gray-400 group-hover:text-white transition-colors" />
-                <div>
-                  <h4 className="font-semibold text-white mb-1">Download ISO/SOC2 Report</h4>
-                  <p className="text-xs text-gray-500">Available under NDA for Enterprise clients.</p>
-                </div>
-                <button className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-lg transition-colors border border-white/5 group/btn">
-                  Request Copy <ChevronRight className="w-4 h-4 text-gray-400 group-hover/btn:translate-x-1 transition-transform" />
-                </button>
-              </div>
-            </div>
-
+              </motion.div>
+            ))}
           </div>
-        </motion.div>
+        </section>
 
-        {/* Footer Note */}
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 1 }}
-          className="text-center pb-8 border-t border-white/5 pt-8"
-        >
-          <p className="text-sm text-gray-500">
-            Have a specific security question or found a vulnerability? Please contact our security team at <a href="mailto:security@anyforge.ai" className="text-primary hover:underline">security@anyforge.ai</a>.
-          </p>
-        </motion.div>
+        {/* 3. DATA FLOW VISUALIZER */}
+        <section className="relative">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="mb-12 text-center"
+          >
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Lifespan of a Data Pipeline</h2>
+            <p className="text-gray-400">Watch exactly what happens to your payload.</p>
+          </motion.div>
+
+          <div className="w-full overflow-x-auto pb-8 custom-scrollbar">
+            <div className="min-w-[800px] glass-panel border border-white/10 rounded-3xl p-10 relative flex items-center justify-between">
+              
+              {/* Connecting Line */}
+              <div className="absolute top-1/2 left-20 right-20 h-[2px] bg-white/5 -translate-y-1/2 z-0 overflow-hidden">
+                 <motion.div 
+                   initial={{ x: "-10%" }}
+                   animate={{ x: "110%" }}
+                   transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
+                   className="w-[100px] h-full bg-gradient-to-r from-transparent via-emerald-400 to-transparent blur-[2px]"
+                 />
+              </div>
+
+              {/* Nodes */}
+              <div className="relative z-10 flex flex-col items-center gap-4 group">
+                <div className="w-16 h-16 rounded-full bg-[#09090B] border-2 border-white/20 flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.05)]">
+                  <Server className="w-8 h-8 text-gray-400" />
+                </div>
+                <div className="text-center font-mono">
+                  <p className="text-white text-sm font-bold">Your App</p>
+                  <p className="text-[10px] text-emerald-400 mt-1">TLS 1.3</p>
+                </div>
+              </div>
+
+              <div className="relative z-10 flex flex-col items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-[#09090B] border-2 border-emerald-500/50 flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                  <Shield className="w-8 h-8 text-emerald-400" />
+                </div>
+                <div className="text-center font-mono">
+                  <p className="text-white text-sm font-bold">AnyForge API</p>
+                  <p className="text-[10px] text-gray-500 mt-1">In-Memory Base64 Processing</p>
+                </div>
+              </div>
+
+              <div className="relative z-10 flex flex-col items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-[#09090B] border-2 border-purple-500/50 flex items-center justify-center shadow-[0_0_30px_rgba(139,92,246,0.2)]">
+                  <Cpu className="w-8 h-8 text-purple-400" />
+                </div>
+                <div className="text-center font-mono">
+                  <p className="text-white text-sm font-bold">LLM Inference</p>
+                  <p className="text-[10px] text-gray-500 mt-1">Llama 3.3 (Vaporized post-run)</p>
+                </div>
+              </div>
+
+              <div className="relative z-10 flex flex-col items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-[#09090B] border-2 border-blue-500/50 flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.2)]">
+                  <CheckCircle2 className="w-8 h-8 text-blue-400" />
+                </div>
+                <div className="text-center font-mono">
+                  <p className="text-white text-sm font-bold">JSON Returned</p>
+                  <p className="text-[10px] text-emerald-400 mt-1">Latency {"<"} 1s</p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        {/* 4. POLICY DETAILS (ACCORDION) */}
+        <section className="max-w-4xl mx-auto w-full">
+           <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="mb-8"
+          >
+            <h2 className="text-3xl font-bold text-white mb-2">Legal & Compliance</h2>
+            <p className="text-gray-400">The explicit terms of our architecture.</p>
+          </motion.div>
+
+          <div className="flex flex-col gap-4">
+             <AccordionItem 
+                title="Data Processing Agreement (DPA)" 
+                isOpen={openPolicy === 0} 
+                onToggle={() => setOpenPolicy(openPolicy === 0 ? null : 0)}
+              >
+                <p>Our standard Data Processing Agreement is available for all Enterprise customers. It explicitly outlines our obligations as a data processor, ensuring that any sensitive PII entering the AnyForge network is handled in strict accordance with industry regulations.</p>
+                <p className="mt-2">Core tenets include immediate purging of temporary data buffers, non-usage of customer metadata for algorithmic training, and strict notification protocols in the highly unlikely event of a breach.</p>
+             </AccordionItem>
+
+             <AccordionItem 
+                title="GDPR & CCPA Compliance" 
+                isOpen={openPolicy === 1} 
+                onToggle={() => setOpenPolicy(openPolicy === 1 ? null : 1)}
+              >
+                <p>Because AnyForge is essentially a stateless extraction engine, we do not build profiles on your users or retain long-term persistent data unless explicitly requested via logging tools. This inherently limits our attack surface and compliance burden.</p>
+                <p className="mt-2">You retain the absolute right to delete your account, which securely drops all associated API credentials and metadata from our Supabase Postgres schema instantly.</p>
+             </AccordionItem>
+
+             <AccordionItem 
+                title="Vulnerability Reporting (Bug Bounty)" 
+                isOpen={openPolicy === 2} 
+                onToggle={() => setOpenPolicy(openPolicy === 2 ? null : 2)}
+              >
+                <p>We believe in the power of the security community. If you have discovered a security vulnerability in the AnyForge API, dashboard, or underlying infrastructure, we appreciate your help in disclosing it directly to <span className="font-mono text-white text-xs bg-white/10 px-1 py-0.5 rounded">security@anyforge.ai</span>.</p>
+                <p className="mt-2 text-emerald-400 text-xs font-mono uppercase tracking-wider mt-4">Safe Harbor Applies to Responsible Disclosure.</p>
+             </AccordionItem>
+             
+             <AccordionItem 
+                title="Incident Response Plan" 
+                isOpen={openPolicy === 3} 
+                onToggle={() => setOpenPolicy(openPolicy === 3 ? null : 3)}
+              >
+                <p>Our infrastructure is constantly monitored using advanced automated observability tools. In the event of an anomalous event, our 24/7 on-call engineers are rotated into a dedicated war room. All incidents are remediated and communicated transparently to affected stakeholders within 24 hours.</p>
+             </AccordionItem>
+          </div>
+        </section>
+
+        {/* 5. FOOTER CTA */}
+        <section className="pb-32">
+           <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="w-full glass-panel border border-white/10 rounded-3xl p-12 text-center relative overflow-hidden ring-1 ring-white/10"
+           >
+              <div className="absolute inset-0 bg-gradient-to-t from-[#8B5CF6]/10 to-transparent opacity-50 pointer-events-none" />
+              <div className="relative z-10">
+                <h2 className="text-3xl font-bold text-white mb-4">Ready to build securely?</h2>
+                <p className="text-gray-400 mb-8 max-w-xl mx-auto">Generate a cryptographically secure API key and start extracting deterministic JSON from your unstructured payloads immediately.</p>
+                <Link to="/dashboard" className="group relative inline-flex items-stretch mx-auto">
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#8B5CF6] to-[#6366F1] rounded-xl blur-lg opacity-70 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="relative px-8 py-4 bg-[#09090B] border border-white/10 rounded-xl flex items-center gap-3 active:scale-95 transition-transform group-hover:border-white/20">
+                     <Key className="w-5 h-5 text-purple-400" />
+                     <span className="font-bold text-white uppercase tracking-wider text-sm">Generate Your Secure API Key</span>
+                     <ArrowRight className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors group-hover:translate-x-1" />
+                  </div>
+                </Link>
+              </div>
+           </motion.div>
+        </section>
 
       </div>
     </div>
