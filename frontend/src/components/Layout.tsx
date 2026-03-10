@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, PlayCircle, Settings, History, BookOpen, Menu, Search, ChevronRight, LogOut, User } from 'lucide-react';
+import { Zap, PlayCircle, Settings, History, BookOpen, Menu, Search, ChevronRight, LogOut, User, CreditCard } from 'lucide-react';
 import CmdK from './CmdK';
 import { Toaster } from 'sonner';
 
@@ -25,6 +25,7 @@ export default function Layout() {
   const links = [
     { name: 'Playground', path: '/playground', icon: PlayCircle },
     { name: 'Dashboard', path: '/dashboard', icon: Settings },
+    { name: 'Pricing', path: '/pricing', icon: CreditCard },
     { name: 'History', path: '/history', icon: History },
     { name: 'Docs', path: '/docs', icon: BookOpen },
     { name: 'Profile', path: '/profile', icon: User },

@@ -12,6 +12,7 @@ import Docs from './pages/Docs';
 import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
 import SecurityPolicies from './pages/SecurityPolicies';
+import PricingPage from './pages/PricingPage';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/playground" element={<Playground />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/pricing" element={<PricingPage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/docs" element={<Docs />} />
           <Route path="/profile" element={<Profile />} />
