@@ -4,6 +4,22 @@ import { Pricing } from "@/components/blocks/pricing";
 
 const demoPlans = [
   {
+    name: "FREE",
+    price: "0",
+    yearlyPrice: "0",
+    period: "per month",
+    features: [
+      "Up to 5 extractions/day",
+      "Basic JSON export only",
+      "Community support",
+      "Standard LLM models",
+    ],
+    description: "Perfect for testing our extraction capabilities",
+    buttonText: "Get Started Free",
+    href: "/login",
+    isPopular: false,
+  },
+  {
     name: "STARTER",
     price: "15",
     yearlyPrice: "12",
@@ -35,7 +51,7 @@ const demoPlans = [
       "Priority extraction queues",
     ],
     description: "Ideal for growing teams and automated pipelines",
-    buttonText: "Get Started",
+    buttonText: "Upgrade Now",
     href: "/login",
     isPopular: true,
   },

@@ -220,16 +220,75 @@ export default function Profile() {
               </motion.div>
             )}
 
-            {/* Other tabs placeholder */}
-            {(activeTab === 'preferences' || activeTab === 'billing') && (
+            {activeTab === 'billing' && (
+              <motion.div
+                key="billing"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="flex flex-col gap-6"
+              >
+                 <div className="bg-[#09090B] border border-white/10 rounded-xl overflow-hidden">
+                  <div className="px-4 md:px-6 py-4 border-b border-white/10 bg-white/[0.02] flex justify-between items-center">
+                    <h3 className="font-medium text-white">Current Subscription</h3>
+                    <span className="text-xs px-2.5 py-1 rounded-full border border-green-500/30 text-green-400 bg-green-500/10 font-medium">
+                      Active
+                    </span>
+                  </div>
+                  <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
+                     <div>
+                        <h4 className="text-xl font-bold text-white flex items-center gap-2">
+                          FREE Plan 
+                        </h4>
+                        <p className="text-sm text-gray-400 mt-1">
+                          You are currently on the free tier. Perfect for testing and prototyping.
+                        </p>
+                     </div>
+                     <div className="flex flex-col gap-2 w-full md:w-auto mt-4 md:mt-0">
+                        <Link 
+                          to="/pricing"
+                          className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg transition-colors text-center shadow-lg shadow-primary/20"
+                        >
+                          Upgrade Plan
+                        </Link>
+                     </div>
+                  </div>
+                  
+                  <div className="px-4 md:px-6 py-5 border-t border-white/10 bg-[#18181b]/50">
+                    <div className="flex justify-between items-center mb-2">
+                       <span className="text-sm font-medium text-gray-300">Extraction Usage (This Month)</span>
+                       <span className="text-sm font-bold text-white">5 / 150</span>
+                    </div>
+                    <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                       <div className="bg-primary h-2 rounded-full" style={{ width: '3.3%' }}></div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">Usage resets at the beginning of each billing cycle.</p>
+                  </div>
+                 </div>
+
+                 {/* Payment Methods Placeholder */}
+                 <div className="bg-[#09090B] border border-white/10 rounded-xl overflow-hidden opacity-70">
+                  <div className="px-4 md:px-6 py-4 border-b border-white/10 bg-white/[0.02]">
+                    <h3 className="font-medium text-white">Payment Methods</h3>
+                  </div>
+                  <div className="p-4 md:p-6 flex flex-col items-center justify-center h-32 border border-white/5 border-dashed rounded-lg mx-6 mb-6 mt-2">
+                     <CreditCard className="w-6 h-6 text-gray-500 mb-2" />
+                     <p className="text-sm text-gray-400">No payment methods added.</p>
+                     <p className="text-xs text-gray-600 mt-1">Upgrade your plan to add a billing method.</p>
+                  </div>
+                 </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'preferences' && (
                <motion.div
-                  key="other"
+                  key="preferences"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   className="flex flex-col items-center justify-center h-64 border border-white/5 border-dashed rounded-xl"
                >
-                  <p className="text-gray-500 text-sm">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} settings are coming soon.</p>
+                  <p className="text-gray-500 text-sm">Preferences settings are coming soon.</p>
                </motion.div>
             )}
           </AnimatePresence>
